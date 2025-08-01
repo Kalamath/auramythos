@@ -1,0 +1,376 @@
+// Working embedded test interface - replace your current /test route with this
+app.get('/test', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AuraMythos Test</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 15px; 
+            max-width: 900px; 
+            margin: 0 auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        .section h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        textarea { 
+            width: 100%; 
+            height: 120px; 
+            margin: 15px 0; 
+            padding: 15px; 
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        button { 
+            padding: 15px 30px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .results { 
+            margin-top: 20px; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #667eea;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        .results.loading {
+            border-left-color: #f39c12;
+            background: #fef9e7;
+        }
+        .results.error { 
+            border-left-color: #e74c3c; 
+            background: #fdf2f2;
+            color: #c0392b;
+        }
+        .results.success { 
+            border-left-color: #27ae60; 
+            background: #f0fff4;
+            color: #2d5a3d;
+        }
+        .demo-badge {
+            display: inline-block;
+            background: #f39c12;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .generated-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .enhanced-text {
+            background: white;
+            padding: 20px;
+            margin-top: 15px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+            border: 1px solid #e1e8ed;
+        }
+        .input-group {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .input-group textarea {
+            flex: 1;
+            margin: 0;
+            min-width: 300px;
+        }
+        .quick-prompts {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .quick-prompt {
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        .quick-prompt:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 AuraMythos Test Interface</h1>
+        <p class="subtitle">Test your AI-powered story enhancement and image generation</p>
+        
+        <div class="section">
+            <h3>🖼️ Generate Image</h3>
+            <div class="quick-prompts">
+                <span class="quick-prompt" onclick="setImagePrompt('A superhero on a rooftop at sunset')">Superhero Scene</span>
+                <span class="quick-prompt" onclick="setImagePrompt('A magical forest with glowing trees')">Fantasy Forest</span>
+                <span class="quick-prompt" onclick="setImagePrompt('A space station orbiting Earth')">Sci-Fi Space</span>
+                <span class="quick-prompt" onclick="setImagePrompt('A cozy coffee shop in the rain')">Cozy Interior</span>
+            </div>
+            <div class="input-group">
+                <textarea id="imagePrompt" placeholder="Describe your image in detail...">A superhero standing on a rooftop at sunset, cape flowing in the wind, city skyline in the background</textarea>
+                <button onclick="generateImage()" id="imageBtn">Generate Image</button>
+            </div>
+            <div id="imageResults" class="results" style="display: none;"></div>
+        </div>
+        
+        <div class="section">
+            <h3>✨ Enhance Story</h3>
+            <div class="quick-prompts">
+                <span class="quick-prompt" onclick="setStoryText('A detective finds a mysterious letter.')">Mystery Story</span>
+                <span class="quick-prompt" onclick="setStoryText('The spaceship landed in the desert.')">Sci-Fi Adventure</span>
+                <span class="quick-prompt" onclick="setStoryText('She opened the ancient book.')">Fantasy Tale</span>
+                <span class="quick-prompt" onclick="setStoryText('The last person on Earth heard a knock.')">Horror Hook</span>
+            </div>
+            <div class="input-group">
+                <textarea id="storyText" placeholder="Enter your story to enhance...">A mysterious package arrived at the door, wrapped in paper that seemed to shimmer in the moonlight. When Sarah picked it up, she could feel something moving inside.</textarea>
+                <button onclick="enhanceStory()" id="storyBtn">Enhance Story</button>
+            </div>
+            <div id="storyResults" class="results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        function setImagePrompt(text) {
+            document.getElementById('imagePrompt').value = text;
+        }
+        
+        function setStoryText(text) {
+            document.getElementById('storyText').value = text;
+        }
+        
+        async function generateImage() {
+            const prompt = document.getElementById('imagePrompt').value;
+            const div = document.getElementById('imageResults');
+            const btn = document.getElementById('imageBtn');
+            
+            if (!prompt.trim()) {
+                alert('Please enter an image description!');
+                return;
+            }
+            
+            // UI Updates
+            div.style.display = 'block';
+            div.className = 'results loading';
+            div.innerHTML = '<div class="loading-spinner"></div>Generating your image...';
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        prompt: prompt, 
+                        style: 'comic', 
+                        service: 'dalle' 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    div.className = 'results success';
+                    if (result.image.demo) {
+                        div.innerHTML = `
+                            <div class="demo-badge">DEMO MODE</div>
+                            <strong>✅ Demo Success!</strong><br>
+                            <p>${result.image.description}</p>
+                            <small>💡 Add your OpenAI API key to generate real images</small>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <strong>✅ Image Generated Successfully!</strong><br>
+                            <img src="${result.image.localPath}" class="generated-image" alt="Generated image" />
+                            <p><strong>Prompt:</strong> ${result.prompt}</p>
+                            <p><strong>Style:</strong> ${result.style} • <strong>Service:</strong> ${result.service}</p>
+                        `;
+                    }
+                } else {
+                    div.className = 'results error';
+                    div.innerHTML = `
+                        <strong>❌ Generation Failed</strong><br>
+                        <p>${result.error || 'Unknown error occurred'}</p>
+                        <small>💡 Make sure your API keys are properly configured</small>
+                    `;
+                }
+            } catch (error) {
+                div.className = 'results error';
+                div.innerHTML = `
+                    <strong>❌ Connection Error</strong><br>
+                    <p>${error.message}</p>
+                    <small>🔧 Make sure your server is running on port 5001</small>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate Image';
+            }
+        }
+        
+        async function enhanceStory() {
+            const text = document.getElementById('storyText').value;
+            const div = document.getElementById('storyResults');
+            const btn = document.getElementById('storyBtn');
+            
+            if (!text.trim()) {
+                alert('Please enter some text to enhance!');
+                return;
+            }
+            
+            // UI Updates
+            div.style.display = 'block';
+            div.className = 'results loading';
+            div.innerHTML = '<div class="loading-spinner"></div>Enhancing your story...';
+            btn.disabled = true;
+            btn.textContent = 'Enhancing...';
+            
+            try {
+                const response = await fetch('/api/enhance-story', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        text: text, 
+                        format: 'story', 
+                        generateVisuals: true 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    div.className = 'results success';
+                    
+                    let visualInfo = '';
+                    if (result.hasVisuals && result.visuals) {
+                        visualInfo = `
+                            <p><strong>🎨 Visuals:</strong> ${result.metadata?.imagesCreated || 0} images generated</p>
+                        `;
+                    } else if (result.demo) {
+                        visualInfo = '<div class="demo-badge">DEMO MODE</div>';
+                    }
+                    
+                    div.innerHTML = `
+                        <strong>✅ Story Enhanced Successfully!</strong>
+                        ${visualInfo}
+                        <p><strong>📊 Stats:</strong> ${result.wordCount || 'N/A'} words • ${result.characters?.length || 0} characters • ${result.scenes?.length || 0} scenes</p>
+                        <div class="enhanced-text">${result.enhanced.replace(/\\n/g, '<br>')}</div>
+                        ${result.downloadUrls ? '<p><strong>📁 Downloads:</strong> ' + Object.keys(result.downloadUrls).map(format => `<a href="${result.downloadUrls[format]}" target="_blank">${format.toUpperCase()}</a>`).join(' • ') + '</p>' : ''}
+                    `;
+                } else {
+                    div.className = 'results error';
+                    div.innerHTML = `
+                        <strong>❌ Enhancement Failed</strong><br>
+                        <p>${result.error || 'Unknown error occurred'}</p>
+                        <small>💡 Try with shorter text or check your API configuration</small>
+                    `;
+                }
+            } catch (error) {
+                div.className = 'results error';
+                div.innerHTML = `
+                    <strong>❌ Connection Error</strong><br>
+                    <p>${error.message}</p>
+                    <small>🔧 Make sure your server is running on port 5001</small>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enhance Story';
+            }
+        }
+    </script>
+</body>
+</html>
+  `);
+});
