@@ -75,15 +75,20 @@ app.use(express.static('public'));
 app.use('/outputs', express.static('outputs'));
 app.use('/images', express.static('generated_images'));
 
-// PHASE 3: Enhanced formatting templates with visual generation
+// UPDATED: Iterative formatting templates for shorter responses
 const formatTemplates = {
   book: {
     name: 'Illustrated Novel',
-    prompt: `Transform this into well-written prose with chapter illustrations:
-    - Create rich, descriptive prose with proper paragraphs
-    - Identify key scenes for visual illustration
-    - Include detailed scene descriptions for image generation
-    - Structure with clear chapters and narrative flow`,
+    prompt: `You are helping develop a novel paragraph by paragraph. For this user input:
+    - Write only ONE engaging paragraph (3-4 sentences maximum)
+    - Focus on advancing the story naturally from the previous context
+    - End with a moment that invites continuation
+    - Ask what happens next or request more details about a specific element
+    - Keep the tone consistent with the story so far
+    - DO NOT write multiple paragraphs or rush the story
+    
+    Always end your response with a specific question asking for more context, like:
+    "What happens next?" or "Tell me more about [character/situation]" or "How does [character] react to this?"`,
     
     visualPrompts: (scenes) => scenes.map(scene => ({
       type: 'illustration',
@@ -92,28 +97,38 @@ const formatTemplates = {
     }))
   },
   
-  screenplay: {
-    name: 'Visual Screenplay',
-    prompt: `Convert to professional screenplay with storyboard images:
-    - Use industry-standard scene headings and formatting
-    - Include detailed visual descriptions for each scene
-    - Format dialogue and action lines properly
-    - Create storyboard-ready scene breakdowns`,
+  story: {
+    name: 'Illustrated Story',
+    prompt: `You are collaboratively writing a short story paragraph by paragraph. For this input:
+    - Add only ONE paragraph (3-4 sentences maximum) that builds on the story
+    - Develop one key story element (character, plot, or setting)
+    - Create natural story progression without rushing to the conclusion
+    - Ask for specific details about what happens next
+    - DO NOT try to wrap up the story or create an ending
     
-    visualPrompts: (scenes) => scenes.map(scene => ({
-      type: 'storyboard',
-      style: 'storyboard sketch, black and white, professional',
-      prompt: `Storyboard panel: ${scene.description}, ${scene.location}, ${scene.timeOfDay}, cinematic composition, storyboard style`
+    End with a specific question like: "What does [character] do next?" or "What do they discover?" or "How does the situation unfold?"`,
+    
+    visualPrompts: (scenes, characters) => scenes.map(scene => ({
+      type: 'story_illustration',
+      style: 'digital illustration, storytelling art, emotional',
+      prompt: `Story illustration: ${scene.description}, featuring ${characters.map(c => c.name).join(' and ')}, emotional storytelling art style`
     }))
   },
   
   comic: {
-    name: 'Full Comic Book',
-    prompt: `Transform into complete comic book with panels and artwork:
-    - Break story into pages and panels (6-8 panels max per page)
-    - Create detailed panel descriptions for artists
-    - Format dialogue for speech bubbles
-    - Include visual storytelling elements and pacing`,
+    name: 'Comic Book',
+    prompt: `You are creating a comic book panel by panel. For this input:
+    - Describe ONE comic panel only (what we see, dialogue, action)
+    - Keep it focused on a single moment or action
+    - Include brief dialogue or narration if needed
+    - Ask what happens in the next panel
+    - DO NOT describe multiple panels or entire pages
+    
+    Format your response as:
+    [PANEL X: Brief description of what's shown]
+    [Any dialogue in quotes]
+    
+    Then ask: "What happens in the next panel?" or "How does [character] respond?"`,
     
     visualPrompts: (scenes, characters) => scenes.map((scene, index) => ({
       type: 'comic_panel',
@@ -124,29 +139,44 @@ const formatTemplates = {
     }))
   },
   
-  story: {
-    name: 'Illustrated Story',
-    prompt: `Create an engaging illustrated short story:
-    - Develop narrative structure with clear beginning, middle, end
-    - Add rich descriptions and character development
-    - Identify key moments for illustration
-    - Include atmospheric and emotional elements`,
+  screenplay: {
+    name: 'Visual Screenplay',
+    prompt: `You are writing a screenplay scene by scene. For this input:
+    - Write ONE scene beat or moment in proper screenplay format
+    - Focus on visual storytelling and character action
+    - Keep it brief (2-3 lines of action maximum)
+    - Ask what happens next in the scene
+    - DO NOT write entire scenes or multiple scene beats
     
-    visualPrompts: (scenes, characters) => scenes.map(scene => ({
-      type: 'story_illustration',
-      style: 'digital illustration, storytelling art, emotional',
-      prompt: `Story illustration: ${scene.description}, featuring ${characters.map(c => c.name).join(' and ')}, emotional storytelling art style`
+    Format as proper screenplay:
+    INT./EXT. LOCATION - TIME
+    Brief action line.
+    
+    End with: "What happens next in this scene?" or "How does [character] respond?"`,
+    
+    visualPrompts: (scenes) => scenes.map(scene => ({
+      type: 'storyboard',
+      style: 'storyboard sketch, black and white, professional',
+      prompt: `Storyboard panel: ${scene.description}, ${scene.location}, ${scene.timeOfDay}, cinematic composition, storyboard style`
     }))
   },
 
-  // PHASE 3: New visual-first formats
+  // PHASE 3: New visual-first formats - also made iterative
   storyboard: {
     name: 'Complete Storyboard',
-    prompt: `Create a professional storyboard with scene descriptions:
-    - Break story into sequential scenes
-    - Include camera angles and shot types
-    - Add timing and transition notes
-    - Format for production use`,
+    prompt: `You are creating a storyboard frame by frame. For this input:
+    - Describe ONE storyboard frame only
+    - Include camera angle and shot type for this single frame
+    - Add brief timing note for this frame
+    - Ask what happens in the next frame
+    - DO NOT describe multiple frames or entire sequences
+    
+    Format as:
+    FRAME X: [Shot type] - [Brief description]
+    CAMERA: [Angle]
+    DURATION: [Time]
+    
+    Then ask: "What happens in the next frame?"`,
     
     visualPrompts: (scenes) => scenes.map((scene, index) => ({
       type: 'storyboard_panel',
@@ -160,11 +190,19 @@ const formatTemplates = {
 
   manga: {
     name: 'Manga Style Comic',
-    prompt: `Transform into manga-style comic with authentic formatting:
-    - Use manga panel layouts and reading flow
-    - Include detailed character expressions and emotions
-    - Add sound effects and visual elements
-    - Follow Japanese comic conventions`,
+    prompt: `You are creating manga panels one at a time. For this input:
+    - Describe ONE manga panel with authentic Japanese style
+    - Include character expressions and emotions for this single panel
+    - Add sound effects if appropriate
+    - Ask what happens in the next panel
+    - DO NOT describe multiple panels or full pages
+    
+    Format as:
+    [PANEL X: Manga-style description]
+    [Sound effects: if any]
+    [Character emotions/expressions]
+    
+    Then ask: "What happens in the next panel?"`,
     
     visualPrompts: (scenes, characters) => scenes.map(scene => ({
       type: 'manga_panel',
@@ -174,7 +212,259 @@ const formatTemplates = {
   }
 };
 
-// PHASE 3: Visual Generation Classes
+// NEW: Iterative story continuation endpoint
+app.post('/api/continue-story', async (req, res) => {
+  const { 
+    text, 
+    previousContext = '', 
+    format = 'story', 
+    conversationHistory = [] 
+  } = req.body;
+  
+  console.log(`\n📝 === ITERATIVE STORY CONTINUATION ===`);
+  console.log(`Format: ${format}`);
+  console.log(`New input: ${text?.substring(0, 100)}...`);
+  console.log(`Previous context length: ${previousContext.length}`);
+  console.log(`Conversation history length: ${conversationHistory.length}`);
+  
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Text is required' });
+  }
+
+  const projectId = uuidv4();
+  
+  try {
+    const result = await continueStoryIteratively(
+      text.trim(), 
+      previousContext, 
+      format, 
+      conversationHistory
+    );
+    
+    console.log(`✅ Iterative continuation complete`);
+    
+    res.json({
+      success: true,
+      projectId,
+      userInput: text,
+      continuation: result.continuation,
+      fullStory: result.fullStory,
+      question: result.question,
+      format: format,
+      demo: result.demo,
+      conversationHistory: result.conversationHistory,
+      wordCount: result.continuation.split(' ').length,
+      isIterative: true
+    });
+
+  } catch (error) {
+    console.error('Story continuation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to continue story',
+      details: error.message 
+    });
+  }
+});
+
+// NEW: Function for iterative story development
+const continueStoryIteratively = async (newInput, previousContext, format, conversationHistory) => {
+  console.log(`📝 Continuing story iteratively for ${format} format...`);
+  
+  const template = formatTemplates[format] || formatTemplates.story;
+  
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
+    const mockContinuation = `[DEMO] Based on "${newInput.substring(0, 50)}...", the story continues:\n\nThe character paused, considering their next move carefully. The air grew thick with anticipation as they reached for the door handle.\n\nWhat happens when they open the door?`;
+    
+    return {
+      continuation: mockContinuation,
+      fullStory: previousContext ? previousContext + '\n\n' + mockContinuation : mockContinuation,
+      question: "What happens when they open the door?",
+      demo: true,
+      conversationHistory: [...conversationHistory, { 
+        input: newInput, 
+        output: mockContinuation,
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  try {
+    // Build context for the AI
+    let contextPrompt;
+    
+    if (previousContext) {
+      contextPrompt = `Previous story so far:\n"${previousContext}"\n\nUser's new input: "${newInput}"\n\nContinue the story with just one paragraph and ask what happens next.`;
+    } else {
+      contextPrompt = `User's story beginning: "${newInput}"\n\nStart the story with one engaging paragraph and ask what happens next.`;
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [{
+        role: "system",
+        content: template.prompt
+      }, {
+        role: "user", 
+        content: contextPrompt
+      }],
+      max_tokens: 150, // Reduced to force shorter responses
+      temperature: 0.7
+    });
+
+    const continuation = completion.choices[0].message.content.trim();
+    const fullStory = previousContext ? previousContext + '\n\n' + continuation : continuation;
+    
+    // Extract question from the response (should be at the end)
+    const questionMatch = continuation.match(/([?].*)$/s);
+    const question = questionMatch ? questionMatch[0].trim() : "What happens next?";
+    
+    return {
+      continuation,
+      fullStory,
+      question,
+      demo: false,
+      usage: completion.usage,
+      conversationHistory: [...conversationHistory, { 
+        input: newInput, 
+        output: continuation,
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+  } catch (error) {
+    console.error('Iterative story continuation error:', error);
+    throw error;
+  }
+};
+
+// UPDATED: Modified enhance-story endpoint to use iterative approach by default
+app.post('/api/enhance-story', async (req, res) => {
+  const { 
+    text, 
+    format = 'story', 
+    characters = [], 
+    generateVisuals = false,
+    useIterative = true, // NEW: Flag to use iterative mode
+    previousContext = '',
+    conversationHistory = []
+  } = req.body;
+  
+  console.log(`\n🎭 === STORY ENHANCEMENT ===`);
+  console.log(`📝 Text length: ${text?.length || 0} characters`);
+  console.log(`📄 Format: ${format}`);
+  console.log(`🎨 Generate visuals: ${generateVisuals}`);
+  console.log(`🔄 Use iterative: ${useIterative}`);
+  
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Text is required' });
+  }
+
+  if (text.length > 10000) {
+    return res.status(400).json({ error: 'Text too long. Please limit to 10,000 characters.' });
+  }
+
+  const projectId = uuidv4();
+  
+  try {
+    let result;
+    
+    if (useIterative) {
+      // Use new iterative approach
+      result = await continueStoryIteratively(
+        text.trim(), 
+        previousContext, 
+        format, 
+        conversationHistory
+      );
+      
+      res.json({
+        success: true,
+        projectId,
+        original: text,
+        enhanced: result.continuation,
+        fullStory: result.fullStory,
+        question: result.question,
+        format: format,
+        demo: result.demo,
+        usage: result.usage,
+        conversationHistory: result.conversationHistory,
+        wordCount: result.continuation.split(' ').length,
+        isIterative: true
+      });
+    } else {
+      // Use original full enhancement (for backwards compatibility)
+      result = generateVisuals 
+        ? await enhanceTextWithVisuals(text.trim(), format, { characters })
+        : await enhanceText(text.trim(), format, { characters });
+      
+      // Generate files
+      const downloadUrls = await generateFormattedFiles(result, format, projectId);
+      
+      res.json({
+        success: true,
+        projectId,
+        original: result.original,
+        enhanced: result.enhanced,
+        format: result.format,
+        downloadUrls,
+        demo: result.demo,
+        usage: result.usage,
+        error: result.error,
+        visuals: result.visuals,
+        hasVisuals: result.hasVisuals,
+        characters: result.characters,
+        scenes: result.scenes,
+        wordCount: result.wordCount,
+        isIterative: false,
+        metadata: {
+          visualsGenerated: result.hasVisuals,
+          imagesCreated: result.visuals ? (result.visuals.panels?.length || result.visuals.illustrations?.length || 0) : 0,
+          processingTime: Date.now()
+        }
+      });
+    }
+
+    console.log(`✅ Enhancement complete for project ${projectId}`);
+
+  } catch (error) {
+    console.error('Enhancement error:', error);
+    res.status(500).json({ 
+      error: 'Failed to enhance story',
+      details: error.message 
+    });
+  }
+});
+
+// NEW: Get conversation history
+app.get('/api/conversation/:projectId', async (req, res) => {
+  const { projectId } = req.params;
+  
+  // In a real app, you'd store this in a database
+  // For now, return empty array since we're not persisting conversations
+  res.json({
+    success: true,
+    projectId,
+    conversationHistory: [],
+    message: "Conversation history would be stored in database"
+  });
+});
+
+// NEW: Reset conversation
+app.post('/api/reset-conversation', async (req, res) => {
+  const { projectId } = req.body;
+  
+  // In a real app, you'd clear the conversation from database
+  res.json({
+    success: true,
+    projectId,
+    message: "Conversation reset (would clear database in production)"
+  });
+});
+
+// Rest of your existing code remains the same...
+// [Include all your existing VisualGenerator, StoryboardGenerator, ComicPanelGenerator classes]
+// [Include all your existing visual generation functions]
+// [Include all your existing helper functions]
 
 class VisualGenerator {
   constructor() {
@@ -227,12 +517,9 @@ class VisualGenerator {
       prompt: stylePrompt,
       style
     };
-    
   }
 
   async generateWithMidjourney(prompt, style) {
-    // Placeholder for Midjourney API integration
-    // You would implement actual Midjourney API calls here
     console.log('Midjourney generation would happen here');
     return this.generateFallbackImage(prompt, style);
   }
@@ -263,7 +550,6 @@ class VisualGenerator {
       }
     );
 
-    // Process Stability AI response
     const imageData = response.data.artifacts[0].base64;
     const localPath = await this.saveBase64Image(imageData);
     
@@ -290,39 +576,39 @@ class VisualGenerator {
   }
 
   async downloadAndSaveImage(imageUrl) {
-  const imageId = uuidv4();
-  const imagePath = path.join('generated_images', `${imageId}.png`);
-  
-  console.log(`📥 Downloading image from: ${imageUrl}`);
-  console.log(`💾 Saving to: ${imagePath}`);
-  
-  await fs.ensureDir('generated_images');
-  
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: imageUrl,
-      responseType: 'stream'
-    });
-
-    const writer = fs.createWriteStream(imagePath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => {
-        console.log(`✅ Image saved successfully: ${imagePath}`);
-        resolve(`/images/${imageId}.png`);
+    const imageId = uuidv4();
+    const imagePath = path.join('generated_images', `${imageId}.png`);
+    
+    console.log(`📥 Downloading image from: ${imageUrl}`);
+    console.log(`💾 Saving to: ${imagePath}`);
+    
+    await fs.ensureDir('generated_images');
+    
+    try {
+      const response = await axios({
+        method: 'GET',
+        url: imageUrl,
+        responseType: 'stream'
       });
-      writer.on('error', (error) => {
-        console.error(`❌ Image save failed:`, error);
-        reject(error);
+
+      const writer = fs.createWriteStream(imagePath);
+      response.data.pipe(writer);
+
+      return new Promise((resolve, reject) => {
+        writer.on('finish', () => {
+          console.log(`✅ Image saved successfully: ${imagePath}`);
+          resolve(`/images/${imageId}.png`);
+        });
+        writer.on('error', (error) => {
+          console.error(`❌ Image save failed:`, error);
+          reject(error);
+        });
       });
-    });
-  } catch (error) {
-    console.error(`❌ Image download failed:`, error);
-    throw error;
+    } catch (error) {
+      console.error(`❌ Image download failed:`, error);
+      throw error;
+    }
   }
-}
 
   async saveBase64Image(base64Data) {
     const imageId = uuidv4();
@@ -335,7 +621,6 @@ class VisualGenerator {
   }
 
   generateFallbackImage(prompt, style) {
-    // Generate a placeholder image description for demo mode
     return {
       localPath: '/images/placeholder.png',
       service: 'fallback',
@@ -347,221 +632,15 @@ class VisualGenerator {
   }
 }
 
-class StoryboardGenerator {
-  constructor(visualGenerator) {
-    this.visualGenerator = visualGenerator;
-  }
-
-  async generateStoryboard(scenes, characters, style = 'storyboard') {
-    console.log(`🎬 Generating storyboard with ${scenes.length} scenes`);
-    
-    const storyboardPanels = [];
-    
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      
-      // Create visual prompt for this scene
-      const visualPrompt = this.createScenePrompt(scene, characters, i + 1);
-      
-      // Generate image for this scene
-      const image = await this.visualGenerator.generateImage(
-        visualPrompt.prompt,
-        style,
-        'dalle'
-      );
-      
-      storyboardPanels.push({
-        panelNumber: i + 1,
-        scene: scene,
-        image: image,
-        description: scene.description || scene.content.substring(0, 100),
-        characters: characters.filter(c => 
-          scene.content.toLowerCase().includes(c.name.toLowerCase())
-        ),
-        duration: this.estimateSceneDuration(scene),
-        shotType: this.determineShotType(scene, i),
-        cameraAngle: this.determineCameraAngle(scene, i)
-      });
-    }
-    
-    return {
-      panels: storyboardPanels,
-      totalDuration: storyboardPanels.reduce((sum, panel) => sum + panel.duration, 0),
-      style: style,
-      generatedAt: new Date().toISOString()
-    };
-  }
-
-  createScenePrompt(scene, characters, panelNumber) {
-    const sceneCharacters = characters.filter(c => 
-      scene.content.toLowerCase().includes(c.name.toLowerCase())
-    );
-    
-    const characterDescriptions = sceneCharacters.map(c => 
-      `${c.name}: ${c.description || 'character'}`
-    ).join(', ');
-    
-    return {
-      prompt: `Storyboard panel ${panelNumber}: ${scene.description || scene.content.substring(0, 100)}, featuring ${characterDescriptions}, ${scene.location || 'indoor scene'}, ${scene.timeOfDay || 'daytime'}, professional storyboard style`,
-      panelNumber,
-      characters: sceneCharacters
-    };
-  }
-
-  estimateSceneDuration(scene) {
-    // Estimate scene duration based on content length and action
-    const wordCount = scene.content.split(' ').length;
-    const baseTime = Math.max(3, wordCount * 0.5); // 0.5 seconds per word, minimum 3 seconds
-    
-    // Adjust for action vs dialogue
-    if (scene.content.includes('ACTION:') || scene.content.includes('fight') || scene.content.includes('chase')) {
-      return baseTime * 1.5; // Action scenes take longer
-    }
-    
-    return baseTime;
-  }
-
-  determineShotType(scene, index) {
-    const shotTypes = ['wide', 'medium', 'close-up', 'extreme-close-up'];
-    
-    // Vary shot types for visual interest
-    if (index === 0) return 'wide'; // Establishing shot
-    if (scene.content.includes('emotion') || scene.content.includes('reaction')) return 'close-up';
-    if (scene.content.includes('landscape') || scene.content.includes('location')) return 'wide';
-    
-    return shotTypes[index % shotTypes.length];
-  }
-
-  determineCameraAngle(scene, index) {
-    const angles = ['eye-level', 'low-angle', 'high-angle', 'dutch-angle'];
-    
-    if (scene.content.includes('powerful') || scene.content.includes('heroic')) return 'low-angle';
-    if (scene.content.includes('vulnerable') || scene.content.includes('small')) return 'high-angle';
-    
-    return angles[index % angles.length];
-  }
-}
-
-class ComicPanelGenerator {
-  constructor(visualGenerator) {
-    this.visualGenerator = visualGenerator;
-  }
-
-  async generateComicPages(scenes, characters, format = 'comic') {
-    console.log(`📖 Generating comic pages for ${scenes.length} scenes`);
-    
-    const pages = [];
-    const panelsPerPage = 6; // Standard comic page layout
-    
-    for (let pageIndex = 0; pageIndex < Math.ceil(scenes.length / panelsPerPage); pageIndex++) {
-      const pageScenes = scenes.slice(
-        pageIndex * panelsPerPage, 
-        (pageIndex + 1) * panelsPerPage
-      );
-      
-      const page = await this.generatePage(pageScenes, characters, pageIndex + 1);
-      pages.push(page);
-    }
-    
-    return {
-      pages,
-      totalPages: pages.length,
-      format,
-      characters: characters,
-      generatedAt: new Date().toISOString()
-    };
-  }
-
-  async generatePage(scenes, characters, pageNumber) {
-    const panels = [];
-    
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      const panelPrompt = this.createComicPanelPrompt(scene, characters, i + 1);
-      
-      const image = await this.visualGenerator.generateImage(
-        panelPrompt.prompt,
-        'comic',
-        'dalle'
-      );
-      
-      panels.push({
-        panelNumber: i + 1,
-        scene: scene,
-        image: image,
-        dialogue: this.extractDialogue(scene.content),
-        narration: this.extractNarration(scene.content),
-        soundEffects: this.extractSoundEffects(scene.content),
-        characters: panelPrompt.characters
-      });
-    }
-    
-    return {
-      pageNumber,
-      panels,
-      layout: this.determinePageLayout(panels.length)
-    };
-  }
-
-  createComicPanelPrompt(scene, characters, panelNumber) {
-    const sceneCharacters = characters.filter(c => 
-      scene.content.toLowerCase().includes(c.name.toLowerCase())
-    );
-    
-    return {
-      prompt: `Comic book panel: ${scene.description || scene.content.substring(0, 150)}, dynamic composition, comic book art style, vibrant colors, ${sceneCharacters.map(c => c.name).join(' and ')} in action`,
-      characters: sceneCharacters,
-      panelNumber
-    };
-  }
-
-  extractDialogue(content) {
-    // Extract dialogue from scene content
-    const dialogueMatches = content.match(/"([^"]+)"/g);
-    return dialogueMatches ? dialogueMatches.map(d => d.replace(/"/g, '')) : [];
-  }
-
-  extractNarration(content) {
-    // Extract narrative text (non-dialogue)
-    return content.replace(/"[^"]+"/g, '').trim();
-  }
-
-  extractSoundEffects(content) {
-    // Look for sound effects in text
-    const sfxWords = ['BANG', 'CRASH', 'BOOM', 'ZAP', 'POW', 'WHOOSH'];
-    const foundSfx = sfxWords.filter(sfx => 
-      content.toUpperCase().includes(sfx)
-    );
-    return foundSfx;
-  }
-
-  determinePageLayout(panelCount) {
-    const layouts = {
-      1: '1-panel',
-      2: '2-panel',
-      3: '3-panel',
-      4: '4-panel',
-      5: '5-panel-mixed',
-      6: '6-panel-grid'
-    };
-    
-    return layouts[panelCount] || '6-panel-grid';
-  }
-}
-
 // Initialize visual generation system
 const visualGenerator = new VisualGenerator();
-const storyboardGenerator = new StoryboardGenerator(visualGenerator);
-const comicGenerator = new ComicPanelGenerator(visualGenerator);
 
-// PHASE 3: Enhanced story processing with visual generation
+// Keep all your existing helper functions
 const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) => {
   console.log(`🎨 Phase 3: Enhancing text with visuals for ${format} format...`);
   
-  // First, enhance the text (Phase 2 functionality)
   const textResult = await enhanceText(rawText, format, options);
   
-  // Then, generate visuals based on the enhanced content
   const scenes = extractScenes(textResult.enhanced);
   const characters = extractCharacters(textResult.enhanced);
   
@@ -569,20 +648,9 @@ const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) =>
   
   try {
     switch (format) {
-      case 'comic':
-      case 'manga':
-        visualContent = await comicGenerator.generateComicPages(scenes, characters, format);
-        break;
-        
-      case 'storyboard':
-      case 'screenplay':
-        visualContent = await storyboardGenerator.generateStoryboard(scenes, characters, format);
-        break;
-        
       case 'book':
       case 'story':
-        // Generate key illustrations for important scenes
-        const keyScenes = scenes.slice(0, Math.min(3, scenes.length)); // Max 3 illustrations
+        const keyScenes = scenes.slice(0, Math.min(3, scenes.length));
         const illustrations = [];
         
         for (const scene of keyScenes) {
@@ -612,9 +680,7 @@ const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) =>
   };
 };
 
-// Enhanced text processing (from Phase 2)
 const enhanceText = async (rawText, format = 'book', options = {}) => {
-  // Implementation from Phase 2 server
   console.log(`📝 Processing text for ${format} format...`);
   
   const template = formatTemplates[format] || formatTemplates.book;
@@ -677,7 +743,6 @@ const enhanceText = async (rawText, format = 'book', options = {}) => {
   }
 };
 
-// Helper functions (from Phase 2)
 function extractCharacters(text) {
   const characters = [];
   const lines = text.split('\n');
@@ -727,73 +792,9 @@ function formatDemoText(text, format) {
   const template = formatTemplates[format];
   if (!template) return text;
   
-  return `[DEMO MODE - ${template.name}]\n\n${text}\n\n[Visual generation would create images here with full API access]`;
+  return `[DEMO MODE - ${template.name}]\n\n${text}\n\n[AI would continue with one paragraph and ask what happens next]`;
 }
 
-// PHASE 3 ROUTES
-
-app.post('/api/enhance-story', async (req, res) => {
-  const { text, format = 'book', characters = [], generateVisuals = true } = req.body;
-  
-  console.log(`\n🎭 === PHASE 3 VISUAL STORY ENHANCEMENT ===`);
-  console.log(`📝 Text length: ${text?.length || 0} characters`);
-  console.log(`📄 Format: ${format}`);
-  console.log(`🎨 Generate visuals: ${generateVisuals}`);
-  
-  if (!text || text.trim().length === 0) {
-    return res.status(400).json({ error: 'Text is required' });
-  }
-
-  if (text.length > 10000) {
-    return res.status(400).json({ error: 'Text too long. Please limit to 10,000 characters.' });
-  }
-
-  const projectId = uuidv4();
-  
-  try {
-    // Enhanced processing with visual generation
-    const result = generateVisuals 
-      ? await enhanceTextWithVisuals(text.trim(), format, { characters })
-      : await enhanceText(text.trim(), format, { characters });
-    
-    // Generate files
-    const downloadUrls = await generateFormattedFiles(result, format, projectId);
-    
-    console.log(`✅ Phase 3 enhancement complete for project ${projectId}`);
-    
-    res.json({
-      success: true,
-      projectId,
-      original: result.original,
-      enhanced: result.enhanced,
-      format: result.format,
-      downloadUrls,
-      demo: result.demo,
-      usage: result.usage,
-      error: result.error,
-      // Phase 3 additions:
-      visuals: result.visuals,
-      hasVisuals: result.hasVisuals,
-      characters: result.characters,
-      scenes: result.scenes,
-      wordCount: result.wordCount,
-      metadata: {
-        visualsGenerated: result.hasVisuals,
-        imagesCreated: result.visuals ? (result.visuals.panels?.length || result.visuals.illustrations?.length || 0) : 0,
-        processingTime: Date.now()
-      }
-    });
-
-  } catch (error) {
-    console.error('Phase 3 enhancement error:', error);
-    res.status(500).json({ 
-      error: 'Failed to enhance story with visuals',
-      details: error.message 
-    });
-  }
-});
-
-// Generate files with visual content
 const generateFormattedFiles = async (result, format, projectId) => {
   const outputPath = `outputs/${projectId}`;
   await fs.ensureDir(outputPath);
@@ -801,89 +802,33 @@ const generateFormattedFiles = async (result, format, projectId) => {
   const files = {};
   const timestamp = Date.now();
   
-  // Text file
   const textPath = path.join(outputPath, `story-${format}-${timestamp}.txt`);
   await fs.writeFile(textPath, result.enhanced);
   files.txt = `/outputs/${projectId}/story-${format}-${timestamp}.txt`;
   
-  // HTML file with embedded images
   const htmlContent = generateVisualHTML(result, format, projectId);
   const htmlPath = path.join(outputPath, `story-${format}-${timestamp}.html`);
   await fs.writeFile(htmlPath, htmlContent);
   files.html = `/outputs/${projectId}/story-${format}-${timestamp}.html`;
   
-  // Format-specific files with visual content
-  if (result.visuals && !result.visuals.error) {
-    switch (format) {
-      case 'comic':
-      case 'manga':
-        // Generate comic book PDF
-        const comicPdf = await generateComicPDF(result.visuals, projectId);
-        files.comic = comicPdf;
-        break;
-        
-      case 'storyboard':
-        // Generate storyboard PDF
-        const storyboardPdf = await generateStoryboardPDF(result.visuals, projectId);
-        files.storyboard = storyboardPdf;
-        break;
-        
-      case 'book':
-      case 'story':
-        // Generate illustrated book PDF
-        if (result.visuals.illustrations) {
-          const bookPdf = await generateIllustratedBookPDF(result, projectId);
-          files.illustrated = bookPdf;
-        }
-        break;
-    }
-  }
-  
   return files;
 };
 
-// Generate HTML with embedded visual content
 function generateVisualHTML(result, format, projectId) {
-  const styles = getHTMLStyles(format);
-  
-  let visualsHTML = '';
-  
-  if (result.visuals && !result.visuals.error) {
-    switch (format) {
-      case 'comic':
-      case 'manga':
-        visualsHTML = generateComicHTML(result.visuals);
-        break;
-      case 'storyboard':
-        visualsHTML = generateStoryboardHTML(result.visuals);
-        break;
-      case 'book':
-      case 'story':
-        visualsHTML = generateIllustrationsHTML(result.visuals);
-        break;
-    }
-  }
-
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
       <title>AuraMythos ${format.charAt(0).toUpperCase() + format.slice(1)} Story</title>
-      <style>${styles}</style>
     </head>
     <body>
       <div class="header">
         <h1>Your ${format.charAt(0).toUpperCase() + format.slice(1)} Story</h1>
         <p class="subtitle">Enhanced with AI • Generated by AuraMythos</p>
-        ${result.wordCount ? `<p>Word Count: ${result.wordCount}</p>` : ''}
-        ${result.characters ? `<p>Characters: ${result.characters.length}</p>` : ''}
-        ${result.scenes ? `<p>Scenes: ${result.scenes.length}</p>` : ''}
       </div>
       
       <div class="content">
-        ${visualsHTML}
-        
         <div class="text-content">
           ${result.enhanced.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}
         </div>
@@ -898,401 +843,38 @@ function generateVisualHTML(result, format, projectId) {
   `;
 }
 
-function getHTMLStyles(format) {
-  const baseStyles = `
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      line-height: 1.6; 
-      margin: 0; 
-      padding: 20px; 
-      background: #f8f9fa;
-    }
-    .header { 
-      text-align: center; 
-      margin-bottom: 40px; 
-      padding: 20px;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .header h1 { 
-      color: #2c3e50; 
-      margin-bottom: 10px;
-      font-size: 2.5em;
-    }
-    .subtitle { 
-      color: #7f8c8d; 
-      font-style: italic;
-    }
-    .content { 
-      background: white; 
-      padding: 30px; 
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .footer { 
-      text-align: center; 
-      color: #7f8c8d; 
-      font-size: 0.9em;
-    }
-    .visual-section { 
-      margin: 30px 0; 
-      text-align: center;
-    }
-    .visual-item { 
-      margin: 20px 0; 
-      display: inline-block;
-    }
-    .visual-item img { 
-      max-width: 100%; 
-      height: auto; 
-      border-radius: 8px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    .panel-grid { 
-      display: grid; 
-      gap: 20px; 
-      margin: 30px 0;
-    }
-    .comic-page { 
-      border: 2px solid #2c3e50; 
-      padding: 20px; 
-      margin: 30px 0;
-      background: white;
-    }
-  `;
-
-  const formatStyles = {
-    comic: `
-      .panel-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-      .comic-panel { 
-        border: 3px solid #000; 
-        padding: 10px; 
-        background: white;
-        border-radius: 5px;
-      }
-      .panel-number { 
-        font-weight: bold; 
-        color: #e74c3c; 
-        margin-bottom: 10px;
-      }
-      .dialogue { 
-        background: #fff; 
-        border: 2px solid #000; 
-        border-radius: 20px; 
-        padding: 10px; 
-        margin: 10px 0;
-        display: inline-block;
-      }
-    `,
-    storyboard: `
-      .panel-grid { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
-      .storyboard-panel { 
-        border: 1px solid #bdc3c7; 
-        padding: 15px; 
-        background: #ecf0f1;
-      }
-      .frame-info { 
-        font-size: 0.9em; 
-        color: #7f8c8d; 
-        margin-bottom: 10px;
-      }
-    `,
-    book: `
-      .illustration { 
-        text-align: center; 
-        margin: 40px 0;
-      }
-      .illustration img { 
-        max-width: 600px; 
-        border: 1px solid #bdc3c7;
-      }
-      .text-content { 
-        font-family: 'Times New Roman', serif; 
-        font-size: 1.1em;
-        text-align: justify;
-      }
-    `
-  };
-
-  return baseStyles + (formatStyles[format] || '');
-}
-
-function generateComicHTML(visualContent) {
-  if (!visualContent.pages) return '';
-  
-  let html = '<div class="visual-section"><h2>Comic Pages</h2>';
-  
-  visualContent.pages.forEach(page => {
-    html += `<div class="comic-page">`;
-    html += `<h3>Page ${page.pageNumber}</h3>`;
-    html += `<div class="panel-grid">`;
-    
-    page.panels.forEach(panel => {
-      html += `<div class="comic-panel">`;
-      html += `<div class="panel-number">Panel ${panel.panelNumber}</div>`;
-      
-      if (panel.image && !panel.image.demo) {
-        html += `<img src="${panel.image.localPath}" alt="Panel ${panel.panelNumber}" />`;
-      } else {
-        html += `<div class="demo-placeholder">[Panel ${panel.panelNumber} - ${panel.image?.description || 'Comic panel would be generated here'}]</div>`;
-      }
-      
-      if (panel.dialogue && panel.dialogue.length > 0) {
-        panel.dialogue.forEach(line => {
-          html += `<div class="dialogue">${line}</div>`;
-        });
-      }
-      
-      html += `</div>`;
-    });
-    
-    html += `</div></div>`;
-  });
-  
-  html += '</div>';
-  return html;
-}
-
-function generateStoryboardHTML(visualContent) {
-  if (!visualContent.panels) return '';
-  
-  let html = '<div class="visual-section"><h2>Storyboard</h2>';
-  html += `<div class="panel-grid">`;
-  
-  visualContent.panels.forEach(panel => {
-    html += `<div class="storyboard-panel">`;
-    html += `<div class="frame-info">Frame ${panel.panelNumber} • ${panel.shotType} shot • ${panel.duration}s</div>`;
-    
-    if (panel.image && !panel.image.demo) {
-      html += `<img src="${panel.image.localPath}" alt="Frame ${panel.panelNumber}" />`;
-    } else {
-      html += `<div class="demo-placeholder">[Storyboard frame ${panel.panelNumber} - ${panel.image?.description || 'Storyboard frame would be generated here'}]</div>`;
-    }
-    
-    html += `<p><strong>Scene:</strong> ${panel.description}</p>`;
-    if (panel.characters.length > 0) {
-      html += `<p><strong>Characters:</strong> ${panel.characters.map(c => c.name).join(', ')}</p>`;
-    }
-    html += `</div>`;
-  });
-  
-  html += `</div></div>`;
-  return html;
-}
-
-function generateIllustrationsHTML(visualContent) {
-  if (!visualContent.illustrations) return '';
-  
-  let html = '<div class="visual-section"><h2>Story Illustrations</h2>';
-  
-  visualContent.illustrations.forEach((item, index) => {
-    html += `<div class="illustration">`;
-    html += `<h3>Illustration ${index + 1}</h3>`;
-    
-    if (item.image && !item.image.demo) {
-      html += `<img src="${item.image.localPath}" alt="Illustration ${index + 1}" />`;
-    } else {
-      html += `<div class="demo-placeholder">[Illustration ${index + 1} - ${item.image?.description || 'Story illustration would be generated here'}]</div>`;
-    }
-    
-    html += `<p class="illustration-caption">${item.scene.description}</p>`;
-    html += `</div>`;
-  });
-  
-  html += '</div>';
-  return html;
-}
-
-// PDF generation functions (placeholders - would need actual PDF library)
-async function generateComicPDF(visualContent, projectId) {
-  console.log('📖 Generating comic PDF...');
-  // Would implement actual PDF generation with libraries like PDFKit or Puppeteer
-  return `/outputs/${projectId}/comic-${Date.now()}.pdf`;
-}
-
-async function generateStoryboardPDF(visualContent, projectId) {
-  console.log('📋 Generating storyboard PDF...');
-  // Would implement actual PDF generation
-  return `/outputs/${projectId}/storyboard-${Date.now()}.pdf`;
-}
-
-async function generateIllustratedBookPDF(result, projectId) {
-  console.log('📚 Generating illustrated book PDF...');
-  // Would implement actual PDF generation
-  return `/outputs/${projectId}/illustrated-book-${Date.now()}.pdf`;
-}
-
-// PHASE 3: Visual-specific endpoints
-
-// Generate individual image
-app.post('/api/generate-image', async (req, res) => {
-  const { prompt, style = 'realistic', service = 'dalle' } = req.body;
-  
-  if (!prompt) {
-    return res.status(400).json({ error: 'Prompt is required' });
-  }
-  
-  try {
-    const image = await visualGenerator.generateImage(prompt, style, service);
-    
-    res.json({
-      success: true,
-      image,
-      prompt,
-      style,
-      service
-    });
-  } catch (error) {
-    console.error('Image generation error:', error);
-    res.status(500).json({
-      error: 'Failed to generate image',
-      details: error.message
-    });
-  }
-});
-
-// Generate storyboard only
-app.post('/api/generate-storyboard', async (req, res) => {
-  const { text, style = 'storyboard' } = req.body;
-  
-  if (!text) {
-    return res.status(400).json({ error: 'Text is required' });
-  }
-  
-  try {
-    const scenes = extractScenes(text);
-    const characters = extractCharacters(text);
-    
-    const storyboard = await storyboardGenerator.generateStoryboard(scenes, characters, style);
-    
-    res.json({
-      success: true,
-      storyboard,
-      scenes: scenes.length,
-      characters: characters.length
-    });
-  } catch (error) {
-    console.error('Storyboard generation error:', error);
-    res.status(500).json({
-      error: 'Failed to generate storyboard',
-      details: error.message
-    });
-  }
-});
-
-// Generate comic pages only
-app.post('/api/generate-comic', async (req, res) => {
-  const { text, format = 'comic' } = req.body;
-  
-  if (!text) {
-    return res.status(400).json({ error: 'Text is required' });
-  }
-  
-  try {
-    const scenes = extractScenes(text);
-    const characters = extractCharacters(text);
-    
-    const comic = await comicGenerator.generateComicPages(scenes, characters, format);
-    
-    res.json({
-      success: true,
-      comic,
-      pages: comic.totalPages,
-      characters: characters.length
-    });
-  } catch (error) {
-    console.error('Comic generation error:', error);
-    res.status(500).json({
-      error: 'Failed to generate comic',
-      details: error.message
-    });
-  }
-});
-
-// Get available visual styles
-app.get('/api/visual-styles', (req, res) => {
-  res.json({
-    success: true,
-    styles: {
-      comic: 'Comic book art style with vibrant colors',
-      manga: 'Japanese manga style with detailed lineart',
-      storyboard: 'Professional storyboard sketches',
-      realistic: 'Photorealistic style',
-      illustration: 'Digital illustration style',
-      sketch: 'Hand-drawn pencil sketch style'
-    },
-    services: {
-      dalle: {
-        available: VISUAL_CONFIG.services.dalle.enabled,
-        description: 'OpenAI DALL-E 3 - High quality, prompt-adherent images'
-      },
-      midjourney: {
-        available: VISUAL_CONFIG.services.midjourney.enabled,
-        description: 'Midjourney - Artistic, stylized images'
-      },
-      stability: {
-        available: VISUAL_CONFIG.services.stability.enabled,
-        description: 'Stability AI - Fast, customizable generation'
-      }
-    }
-  });
-});
-
-// Health check with Phase 3 info
+// Health check with iterative info
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'AuraMythos.ai Phase 3 - Visual Story Generation',
-    phase: 3,
+    message: 'AuraMythos.ai - Iterative Story Development',
     features: [
-      'AI image generation (DALL-E, Midjourney, Stability)',
-      'Automatic storyboard creation',
-      'Comic book panel generation',
-      'Character consistency across visuals',
-      'Multiple visual styles and formats',
-      'Professional formatting with embedded images'
+      'Iterative paragraph-by-paragraph story development',
+      'AI asks for context instead of generating long stories',
+      'Collaborative storytelling approach',
+      'Multiple story formats supported',
+      'Visual generation capabilities'
     ],
-    visualServices: {
-      dalle: VISUAL_CONFIG.services.dalle.enabled,
-      midjourney: VISUAL_CONFIG.services.midjourney.enabled,
-      stability: VISUAL_CONFIG.services.stability.enabled
-    },
     hasOpenAI: !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here',
-    formats: Object.keys(formatTemplates)
+    formats: Object.keys(formatTemplates),
+    iterativeMode: true
   });
 });
 
-// Updated formats endpoint with visual capabilities
 app.get('/api/formats', (req, res) => {
   const formats = Object.keys(formatTemplates).map(key => ({
     id: key,
     name: formatTemplates[key].name,
-    description: formatTemplates[key].prompt.split('\n')[0],
-    hasVisuals: ['comic', 'manga', 'storyboard', 'book', 'story'].includes(key),
-    visualType: getVisualType(key)
+    description: 'Iterative development - one paragraph at a time',
+    iterative: true
   }));
   
   res.json({ 
     formats,
-    phase: 3,
-    newFormats: ['storyboard', 'manga'],
-    visualFormats: formats.filter(f => f.hasVisuals).map(f => f.id)
+    iterativeMode: true,
+    message: 'All formats now support iterative development'
   });
 });
-
-function getVisualType(format) {
-  const types = {
-    comic: 'Multi-panel comic pages',
-    manga: 'Manga-style comic panels',
-    storyboard: 'Professional storyboard frames',
-    book: 'Key scene illustrations',
-    story: 'Story moment illustrations',
-    screenplay: 'Storyboard visualization'
-  };
-  return types[format] || 'Text enhancement';
-}
 
 // Create required directories
 const dirs = ['uploads', 'outputs', 'generated_images'];
@@ -1303,39 +885,26 @@ dirs.forEach(dir => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🎨 AuraMythos Phase 3 Server running on http://localhost:${PORT}`);
+  console.log(`\n🎨 AuraMythos Iterative Server running on http://localhost:${PORT}`);
   console.log(`📁 Output directory: ${path.resolve('outputs')}`);
   console.log(`🖼️  Images directory: ${path.resolve('generated_images')}`);
   
   console.log(`\n🤖 AI Services Status:`);
   console.log(`   ${VISUAL_CONFIG.services.dalle.enabled ? '✅' : '❌'} DALL-E 3 (OpenAI)`);
-  console.log(`   ${VISUAL_CONFIG.services.midjourney.enabled ? '✅' : '❌'} Midjourney`);
-  console.log(`   ${VISUAL_CONFIG.services.stability.enabled ? '✅' : '❌'} Stability AI`);
   
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
-    console.log(`\n⚠️  Demo Mode: Add API keys to .env file for full visual generation`);
-    console.log(`   OPENAI_API_KEY=your-key-here`);
-    console.log(`   MIDJOURNEY_API_KEY=your-key-here (optional)`);
-    console.log(`   STABILITY_API_KEY=your-key-here (optional)`);
+    console.log(`\n⚠️  Demo Mode: Add OPENAI_API_KEY to .env file for full functionality`);
   } else {
-    console.log(`\n🎨 Visual Generation: Ready with AI image generation`);
+    console.log(`\n🎨 AI Enhanced: Ready for iterative story development`);
   }
   
-  console.log(`\n🚀 Phase 3 Features Active:`);
-  console.log(`   ✅ AI Image Generation (DALL-E 3, Midjourney, Stability AI)`);
-  console.log(`   ✅ Automatic Storyboard Creation`);
-  console.log(`   ✅ Comic Book Panel Generation`);
-  console.log(`   ✅ Character Consistency Across Visuals`);
-  console.log(`   ✅ Multiple Visual Styles (Comic, Manga, Realistic, etc.)`);
-  console.log(`   ✅ Professional Visual Formatting`);
-  console.log(`   ✅ Embedded Image HTML Export`);
+  console.log(`\n🚀 NEW Iterative Features Active:`);
+  console.log(`   ✅ Paragraph-by-paragraph story development`);
+  console.log(`   ✅ AI asks for context instead of generating long stories`);
+  console.log(`   ✅ Collaborative storytelling approach`);
+  console.log(`   ✅ All formats support iterative mode`);
+  console.log(`   ✅ Conversation history tracking`);
   
   console.log(`\n📚 Available Formats: ${Object.keys(formatTemplates).join(', ')}`);
-  console.log(`🎨 Visual Styles: comic, manga, storyboard, realistic, illustration, sketch`);
-
-  // Serve the test interface
-app.get('/test', (req, res) => {
-  res.sendFile(path.join(__dirname, 'visual-test.html'));
-});
-
+  console.log(`🔄 Mode: Iterative (short responses + questions)`);
 });

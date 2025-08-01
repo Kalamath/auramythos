@@ -1,1004 +1,1511 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-// Enhanced Error Recovery System
-class AuraMythosErrorRecovery {
-  constructor() {
-    this.recoveryStrategies = new Map();
-    this.initializeRecoveryStrategies();
-  }
+// NextStepSelector Component
+const NextStepSelector = ({ 
+  onSelect, 
+  onClose, 
+  currentText = '',
+  show = true 
+}) => {
+  const [selectedOption, setSelectedOption] = useState(null);
 
-  initializeRecoveryStrategies() {
-    this.recoveryStrategies.set('microphone_denied', {
-      action: 'show_permission_help',
-      fallback: 'text_input_mode'
-    });
-
-    this.recoveryStrategies.set('speech_recognition_failed', {
-      action: 'retry_with_guidance',
-      fallback: 'text_input_mode'
-    });
-
-    this.recoveryStrategies.set('processing_failed', {
-      action: 'show_demo_result',
-      fallback: 'demo_mode'
-    });
-  }
-
-  async handleError(errorType, errorData = {}) {
-    const strategy = this.recoveryStrategies.get(errorType);
-    if (!strategy) return { action: 'unknown_error', data: { message: 'Something went wrong. Please try again.' } };
-
-    return {
-      action: strategy.action,
-      fallback: strategy.fallback,
-      data: this.getErrorData(errorType, errorData)
-    };
-  }
-
-  getErrorData(errorType, errorData) {
-    const errorMessages = {
-      microphone_denied: {
-        title: '🎤 Microphone Access Needed',
-        message: 'Please allow microphone access to record your voice.',
-        action: 'Grant Permission'
-      },
-      speech_recognition_failed: {
-        title: '🔄 Let\'s Try Again',
-        message: 'Having trouble hearing you clearly. Try speaking closer to your microphone.',
-        action: 'Retry Recording'
-      },
-      processing_failed: {
-        title: '✨ Demo Mode',
-        message: 'Showing you a preview of what AuraMythos can do!',
-        action: 'See Demo'
-      }
-    };
-
-    return errorMessages[errorType] || { message: 'Something went wrong.' };
-  }
-}
-
-// Format options with better names for user selection
-const storyFormats = {
-  story: {
-    icon: '📖',
-    name: 'Novel',
-    description: 'Rich narrative with detailed characters and scenes'
-  },
-  comic: {
-    icon: '💭',
-    name: 'Comic/Manga',
-    description: 'Visual storytelling with panels and dialogue'
-  },
-  screenplay: {
-    icon: '🎬',
-    name: 'Storyboard',
-    description: 'Scene-by-scene visual breakdown for film/video'
-  },
-  summary: {
-    icon: '📝',
-    name: 'Blog',
-    description: 'Engaging blog post or article format'
-  }
-};
-
-// Voice Visualizer Component
-const VoiceVisualizer = ({ isRecording, audioLevel = 0 }) => {
-  const [bars, setBars] = useState(Array(12).fill(0));
-
-  useEffect(() => {
-    if (!isRecording) {
-      setBars(Array(12).fill(0));
-      return;
+  const options = [
+    {
+      id: 'format',
+      title: 'Story Format',
+      subtitle: 'Select story type (novel, comic, screenplay)',
+      action: () => onSelect('format')
+    },
+    {
+      id: 'enhance',
+      title: 'Enhance',
+      subtitle: 'Transform your story with artificial intelligence',
+      action: () => onSelect('enhance')
+    },
+    {
+      id: 'refine',
+      title: 'Refine',
+      subtitle: 'Make manual edits and improvements',
+      action: () => onSelect('refine')
     }
+  ];
 
-    const interval = setInterval(() => {
-      setBars(prev => prev.map(() => Math.random() * (0.3 + audioLevel * 0.7)));
-    }, 100);
+  const handleOptionClick = (option) => {
+    setSelectedOption(option.id);
+    setTimeout(() => {
+      option.action();
+    }, 150);
+  };
 
-    return () => clearInterval(interval);
-  }, [isRecording, audioLevel]);
+  if (!show) return null;
+
+  const styles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.3)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(4px)',
+      opacity: show ? 1 : 0,
+      transition: 'all 0.3s ease'
+    },
+
+    modal: {
+      background: 'white',
+      borderRadius: '24px',
+      padding: '40px',
+      maxWidth: '500px',
+      width: '90%',
+      textAlign: 'center',
+      boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+      position: 'relative',
+      transform: show ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(20px)',
+      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+    },
+
+    closeButton: {
+      position: 'absolute',
+      top: '16px',
+      right: '20px',
+      background: 'none',
+      border: 'none',
+      fontSize: '24px',
+      color: '#64748b',
+      cursor: 'pointer',
+      padding: '8px',
+      borderRadius: '50%',
+      transition: 'all 0.2s ease'
+    },
+
+    header: {
+      fontSize: '28px',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '12px',
+      marginTop: '20px'
+    },
+
+    subtext: {
+      fontSize: '16px',
+      color: '#64748b',
+      marginBottom: '32px',
+      lineHeight: '1.5'
+    },
+
+    textPreview: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px',
+      marginBottom: '24px',
+      fontSize: '14px',
+      color: '#475569',
+      textAlign: 'left',
+      maxHeight: '120px',
+      overflow: 'hidden',
+      position: 'relative'
+    },
+
+    textFade: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: '20px',
+      background: 'linear-gradient(transparent, #f8fafc)',
+      pointerEvents: 'none'
+    },
+
+    optionsContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      marginBottom: '24px'
+    },
+
+    option: (isSelected) => ({
+      padding: '20px',
+      border: isSelected ? '2px solid #667eea' : '1px solid #e2e8f0',
+      borderRadius: '16px',
+      cursor: 'pointer',
+      textAlign: 'left',
+      background: isSelected ? '#f0f4ff' : 'white',
+      transition: 'all 0.2s ease',
+      transform: isSelected ? 'translateY(-2px)' : 'none',
+      boxShadow: isSelected 
+        ? '0 8px 25px rgba(102, 126, 234, 0.15)' 
+        : '0 2px 8px rgba(0, 0, 0, 0.05)',
+      display: 'flex',
+      alignItems: 'center'
+    }),
+
+    optionContent: {
+      flex: 1,
+      paddingLeft: '16px'
+    },
+
+    optionTitle: {
+      fontSize: '18px',
+      fontWeight: '600',
+      color: '#1e293b',
+      margin: '0 0 4px 0'
+    },
+
+    optionSubtitle: {
+      fontSize: '14px',
+      color: '#64748b',
+      margin: 0
+    }
+  };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '4px',
-      height: '60px',
-      margin: '20px 0'
-    }}>
-      {bars.map((height, index) => (
-        <div
-          key={index}
-          style={{
-            width: '6px',
-            height: `${Math.max(8, height * 50)}px`,
-            background: isRecording 
-              ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-              : '#e2e8f0',
-            borderRadius: '3px',
-            transition: 'all 0.1s ease',
-            opacity: isRecording ? 0.7 + height * 0.3 : 0.3
-          }}
-        />
-      ))}
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <button style={styles.closeButton} onClick={onClose}>×</button>
+
+        <h2 style={styles.header}>What's next?</h2>
+        <p style={styles.subtext}>
+          Choose how you'd like to continue with your story
+        </p>
+
+        {currentText && (
+          <div style={styles.textPreview}>
+            {currentText.substring(0, 200)}
+            {currentText.length > 200 && '...'}
+            {currentText.length > 150 && <div style={styles.textFade} />}
+          </div>
+        )}
+
+        <div style={styles.optionsContainer}>
+          {options.map((option) => (
+            <div
+              key={option.id}
+              style={styles.option(selectedOption === option.id)}
+              onClick={() => handleOptionClick(option)}
+            >
+              <div style={styles.optionContent}>
+                <h3 style={styles.optionTitle}>{option.title}</h3>
+                <p style={styles.optionSubtitle}>{option.subtitle}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
-// Clean styles
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px 20px 100px 20px',
-    position: 'relative'
-  },
-
-  header: {
-    textAlign: 'center',
-    marginBottom: '60px',
-    maxWidth: '600px'
-  },
-
-  logo: {
-    fontSize: '3rem',
-    fontWeight: '700',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    marginBottom: '16px'
-  },
-
-  tagline: {
-    fontSize: '1.4rem',
-    color: '#64748b',
-    marginBottom: '12px',
-    fontWeight: '500'
-  },
-
-  description: {
-    fontSize: '1.1rem',
-    color: '#94a3b8',
-    lineHeight: '1.6',
-    maxWidth: '500px',
-    margin: '0 auto'
-  },
-
-  mainCard: {
-    background: 'white',
-    borderRadius: '32px',
-    padding: '60px 50px',
-    boxShadow: '0 25px 50px rgba(0,0,0,0.08)',
-    border: '1px solid #f1f5f9',
-    maxWidth: '500px',
-    width: '100%',
-    textAlign: 'center',
-    transition: 'all 0.3s ease',
-    position: 'relative'
-  },
-
-  backButton: {
-    position: 'absolute',
-    top: '20px',
-    left: '20px',
-    background: 'transparent',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#64748b',
-    transition: 'all 0.2s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px'
-  },
-
-  recordingPrompt: {
-    fontSize: '1.5rem',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '12px'
-  },
-
-  recordingInstructions: {
-    fontSize: '1.1rem',
-    color: '#64748b',
-    lineHeight: '1.6',
-    marginBottom: '40px',
-    maxWidth: '400px',
-    margin: '0 auto 40px'
-  },
-
-  recordButton: (disabled) => ({
-    width: '140px',
-    height: '140px',
-    borderRadius: '50%',
-    border: 'none',
-    background: disabled 
-      ? '#e2e8f0' 
-      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    fontSize: '3rem',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: disabled 
-      ? 'none' 
-      : '0 12px 40px rgba(102, 126, 234, 0.3)',
-    transform: disabled ? 'none' : 'scale(1)',
-    margin: '0 auto',
-    display: 'block'
-  }),
-
-  modal: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0,0,0,0.7)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    backdropFilter: 'blur(8px)'
-  },
-
-  modalContent: {
-    background: 'white',
-    borderRadius: '32px',
-    padding: '50px 40px',
-    maxWidth: '500px',
-    width: '90%',
-    textAlign: 'center',
-    boxShadow: '0 30px 60px rgba(0,0,0,0.3)',
-    position: 'relative'
-  },
-
-  modalBackButton: {
-    position: 'absolute',
-    top: '20px',
-    left: '20px',
-    background: 'transparent',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#64748b',
-    transition: 'all 0.2s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px'
-  },
-
-  formatSelectorContent: {
-    background: 'white',
-    borderRadius: '32px',
-    padding: '50px 40px',
-    maxWidth: '600px',
-    width: '90%',
-    textAlign: 'center',
-    boxShadow: '0 30px 60px rgba(0,0,0,0.3)',
-    position: 'relative'
-  },
-
-  formatSelectorHeader: {
-    fontSize: '2rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: '12px'
-  },
-
-  formatSelectorSubtext: {
-    fontSize: '1.1rem',
-    color: '#64748b',
-    marginBottom: '40px',
-    lineHeight: '1.5'
-  },
-
-  formatGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '30px'
-  },
-
-  formatCard: (selected) => ({
-    padding: '30px 20px',
-    border: selected ? '3px solid #667eea' : '2px solid #e2e8f0',
-    borderRadius: '20px',
-    cursor: 'pointer',
-    textAlign: 'center',
-    background: selected 
-      ? 'linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%)' 
-      : 'white',
-    transition: 'all 0.3s ease',
-    transform: selected ? 'translateY(-4px)' : 'none',
-    boxShadow: selected 
-      ? '0 12px 24px rgba(102, 126, 234, 0.2)' 
-      : '0 4px 12px rgba(0,0,0,0.05)'
-  }),
-
-  formatIcon: {
-    fontSize: '3rem',
-    marginBottom: '16px',
-    display: 'block'
-  },
-
-  formatName: {
-    fontSize: '1.3rem',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '8px'
-  },
-
-  formatDescription: {
-    fontSize: '1rem',
-    color: '#64748b',
-    lineHeight: '1.5'
-  },
-
-  formatSelectButton: (disabled) => ({
-    width: '100%',
-    padding: '18px 36px',
-    background: disabled 
-      ? '#e2e8f0' 
-      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '16px',
-    fontSize: '18px',
-    fontWeight: '600',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: disabled 
-      ? 'none' 
-      : '0 8px 24px rgba(102, 126, 234, 0.3)',
-    marginTop: '10px'
-  }),
-
-  recordingHeader: {
-    fontSize: '1.8rem',
-    fontWeight: '600',
-    color: '#ef4444',
-    marginBottom: '12px'
-  },
-
-  recordingSubtext: {
-    fontSize: '1.1rem',
-    color: '#64748b',
-    marginBottom: '30px',
-    lineHeight: '1.5'
-  },
-
-  stopButton: {
-    width: '100px',
-    height: '100px',
-    borderRadius: '50%',
-    border: 'none',
-    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    color: 'white',
-    fontSize: '2rem',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 8px 32px rgba(239, 68, 68, 0.4)',
-    margin: '20px auto',
-    display: 'block'
-  },
-
-  processingHeader: {
-    fontSize: '1.8rem',
-    fontWeight: '600',
-    color: '#667eea',
-    marginBottom: '16px'
-  },
-
-  processingSubtext: {
-    fontSize: '1.1rem',
-    color: '#64748b',
-    marginBottom: '40px',
-    lineHeight: '1.5'
-  },
-
-  processingSpinner: {
-    width: '80px',
-    height: '80px',
-    border: '6px solid #f1f5f9',
-    borderTop: '6px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    margin: '0 auto 30px'
-  },
-
-  processingSteps: {
-    textAlign: 'left',
-    maxWidth: '300px',
-    margin: '0 auto'
-  },
-
-  processingStep: (isActive, isComplete) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '8px 0',
-    fontSize: '14px',
-    color: isComplete ? '#16a34a' : isActive ? '#667eea' : '#94a3b8',
-    fontWeight: isActive ? '600' : '400'
-  }),
-
-  stepIcon: (isActive, isComplete) => ({
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    background: isComplete ? '#16a34a' : isActive ? '#667eea' : '#e2e8f0',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: '600'
-  }),
-
-  textEditHeader: {
-    fontSize: '1.4rem',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '8px',
-    textAlign: 'center'
-  },
-
-  textEditSubtext: {
-    fontSize: '1rem',
-    color: '#64748b',
-    marginBottom: '24px',
-    textAlign: 'center'
-  },
-
-  textArea: {
-    width: '100%',
-    minHeight: '200px',
-    padding: '20px',
-    border: '2px solid #f1f5f9',
-    borderRadius: '16px',
-    fontSize: '16px',
-    lineHeight: '1.6',
-    resize: 'vertical',
-    outline: 'none',
-    fontFamily: 'inherit',
-    background: '#fafbfc',
-    color: '#1e293b',
-    transition: 'all 0.3s ease',
-    marginBottom: '20px',
-    boxSizing: 'border-box'
-  },
-
-  formatDetection: {
-    padding: '12px 16px',
-    background: '#f0f4ff',
-    border: '1px solid #e0e7ff',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center',
-    fontSize: '14px',
-    color: '#4338ca'
-  },
-
-  modalActions: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'center',
-    marginTop: '24px'
-  },
-
-  actionButton: (variant = 'primary') => ({
-    padding: '14px 28px',
-    background: variant === 'primary' 
-      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-      : variant === 'danger'
-        ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-        : 'transparent',
-    color: variant === 'primary' || variant === 'danger' ? 'white' : '#64748b',
-    border: variant === 'primary' || variant === 'danger' ? 'none' : '1px solid #e2e8f0',
-    borderRadius: '12px',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px'
-  }),
-
-  footer: {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(20px)',
-    borderTop: '1px solid rgba(241, 245, 249, 0.8)',
-    padding: '16px 20px',
-    display: 'flex',
-    justifyContent: 'center',
-    zIndex: 50
-  },
-
-  footerContent: {
-    display: 'flex',
-    gap: '24px',
-    alignItems: 'center'
-  },
-
-  footerButton: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '8px 12px',
-    borderRadius: '12px',
-    transition: 'all 0.2s ease',
-    color: '#64748b',
-    fontSize: '12px',
-    fontWeight: '500'
-  },
-
-  footerButtonIcon: {
-    fontSize: '20px',
-    marginBottom: '2px'
-  },
-
-  resultsSection: {
-    marginTop: '40px',
-    maxWidth: '800px',
-    width: '100%'
-  },
-
-  resultsCard: {
-    background: 'white',
-    borderRadius: '20px',
-    padding: '32px',
-    boxShadow: '0 12px 24px rgba(0,0,0,0.06)',
-    border: '1px solid #f1f5f9'
-  },
-
-  resultsHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '24px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid #f1f5f9'
-  },
-
-  resultsTitle: {
-    fontSize: '1.3rem',
-    fontWeight: '600',
-    color: '#1e293b'
-  },
-
-  resultsStats: {
-    fontSize: '14px',
-    color: '#64748b',
-    display: 'flex',
-    gap: '16px'
-  },
-
-  comparisonGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '24px',
-    marginBottom: '24px'
-  },
-
-  comparisonSection: (isEnhanced) => ({
-    padding: '20px',
-    border: '1px solid #f1f5f9',
-    borderRadius: '12px',
-    background: isEnhanced ? '#f8fafc' : '#fafbfc'
-  }),
-
-  comparisonTitle: (isEnhanced) => ({
-    fontSize: '14px',
-    fontWeight: '600',
-    color: isEnhanced ? '#667eea' : '#64748b',
-    marginBottom: '12px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px'
-  }),
-
-  comparisonText: {
-    fontSize: '15px',
-    lineHeight: '1.6',
-    color: '#374151',
-    whiteSpace: 'pre-wrap'
-  },
-
-  statusMessage: (type) => ({
-    padding: '16px 20px',
-    margin: '20px 0',
-    borderRadius: '12px',
-    fontSize: '15px',
-    fontWeight: '500',
-    background: 
-      type === 'error' ? '#fef2f2' : 
-      type === 'warning' ? '#fffbeb' : 
-      type === 'success' ? '#f0fdf4' : 
-      '#eff6ff',
-    color: 
-      type === 'error' ? '#dc2626' : 
-      type === 'warning' ? '#d97706' : 
-      type === 'success' ? '#16a34a' : 
-      '#2563eb',
-    border: `1px solid ${
-      type === 'error' ? '#fecaca' : 
-      type === 'warning' ? '#fed7aa' : 
-      type === 'success' ? '#bbf7d0' : 
-      '#bfdbfe'
-    }`,
-    textAlign: 'center'
-  }),
-
-  loadingSpinner: {
-    display: 'inline-block',
-    width: '16px',
-    height: '16px',
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderTop: '2px solid white',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginRight: '8px'
-  }
-};
-
-// Main App Component
-function App() {
-  const [text, setText] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState('');
-  const [showFormatSelector, setShowFormatSelector] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
-  const [showRecordingModal, setShowRecordingModal] = useState(false);
-  const [recordingModalStep, setRecordingModalStep] = useState('recording');
+// Enhanced Processing Modal Component
+const ProcessingModal = ({ show, onClose }) => {
   const [processingStep, setProcessingStep] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [modalContent, setModalContent] = useState(null);
-  
-  const recognitionRef = useRef(null);
-  const [errorRecovery] = useState(() => new AuraMythosErrorRecovery());
 
-  const bottomNavButtons = [
-    { id: 'user', icon: '👤', label: 'Profile' },
-    { id: 'upload', icon: '📁', label: 'Upload' },
-    { id: 'write', icon: '✏️', label: 'Write' },
-    { id: 'settings', icon: '⚙️', label: 'Settings' }
+  const processingSteps = [
+    'analyzing',
+    'enhancing', 
+    'polishing'
   ];
 
-  const selectFormat = (formatKey) => {
-    setSelectedStyle(formatKey);
-    setShowFormatSelector(false);
-  };
-
-  const handleFormatCardClick = (formatKey) => {
-    setSelectedStyle(formatKey);
-    // Immediately close the modal and go to recording page
-    setShowFormatSelector(false);
-  };
-
-  const goBackToFormatSelection = () => {
-    setShowFormatSelector(true);
-    setSelectedStyle('');
-    setText('');
-    setResult(null);
-    setStatus(null);
-  };
-
-  const detectFormatFromText = useCallback((text) => {
-    const lowerText = text.toLowerCase();
-    
-    if (lowerText.includes('comic') || lowerText.includes('panel') || lowerText.includes('superhero')) {
-      return 'comic';
-    } else if (lowerText.includes('screenplay') || lowerText.includes('script') || lowerText.includes('scene') || lowerText.includes('fade in')) {
-      return 'screenplay';
-    } else if (lowerText.includes('blog') || lowerText.includes('article') || lowerText.includes('post')) {
-      return 'summary';
-    } else {
-      return selectedStyle;
-    }
-  }, [selectedStyle]);
-
   useEffect(() => {
-    initializeSpeechRecognition();
+    if (show) {
+      setProcessingStep(0);
+      
+      const interval = setInterval(() => {
+        setProcessingStep(prev => {
+          if (prev < processingSteps.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [show]);
+
+  const styles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.3)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(4px)',
+      opacity: show ? 1 : 0,
+      visibility: show ? 'visible' : 'hidden',
+      transition: 'all 0.3s ease'
+    },
+
+    modal: {
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      borderRadius: '24px',
+      width: '90%',
+      maxWidth: '400px',
+      padding: '60px 40px',
+      textAlign: 'center',
+      boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+      transform: show ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(20px)',
+      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      position: 'relative',
+      color: 'white'
+    },
+
+    header: {
+      fontSize: '20px',
+      fontWeight: '500',
+      color: 'white',
+      marginBottom: '40px'
+    },
+
+    magicalLoader: {
+      position: 'relative',
+      width: '60px',
+      height: '60px',
+      margin: '0 auto 40px'
+    },
+
+    sparkle: (delay) => ({
+      position: 'absolute',
+      width: '8px',
+      height: '8px',
+      background: 'white',
+      borderRadius: '50%',
+      animation: `sparkle 2s ease-in-out infinite`,
+      animationDelay: `${delay}s`,
+      opacity: 0
+    }),
+
+    cancelButton: {
+      background: 'none',
+      border: 'none',
+      color: 'rgba(255, 255, 255, 0.8)',
+      fontSize: '16px',
+      cursor: 'pointer',
+      textDecoration: 'underline',
+      marginTop: '20px',
+      transition: 'color 0.2s ease'
+    }
+  };
+
+  if (!show) return null;
+
+  return (
+    <div style={styles.overlay}>
+      <div style={styles.modal}>
+        <div style={styles.header}>
+          ({processingStep + 1}/{processingSteps.length}) {processingSteps[processingStep]}...
+        </div>
+
+        <div style={styles.magicalLoader}>
+          <div className="sparkle" style={styles.sparkle(0)} />
+          <div className="sparkle" style={styles.sparkle(0.3)} />
+          <div className="sparkle" style={styles.sparkle(0.6)} />
+          <div className="sparkle" style={styles.sparkle(0.9)} />
+          <div className="sparkle" style={styles.sparkle(1.2)} />
+          <div className="sparkle" style={styles.sparkle(1.5)} />
+        </div>
+
+        <button style={styles.cancelButton} onClick={onClose}>
+          cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced Result Modal Component
+const ResultModal = ({ show, result, onClose, onAction }) => {
+  const styles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.3)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(4px)',
+      opacity: show ? 1 : 0,
+      visibility: show ? 'visible' : 'hidden',
+      transition: 'all 0.3s ease'
+    },
+
+    modal: {
+      background: 'white',
+      borderRadius: '24px',
+      width: '90%',
+      maxWidth: '700px',
+      maxHeight: '90vh',
+      overflow: 'hidden',
+      boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+      transform: show ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(20px)',
+      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      position: 'relative'
+    },
+
+    header: {
+      padding: '32px 32px 0',
+      textAlign: 'center',
+      position: 'relative'
+    },
+
+    closeButton: {
+      position: 'absolute',
+      top: '16px',
+      right: '24px',
+      background: 'none',
+      border: 'none',
+      fontSize: '24px',
+      cursor: 'pointer',
+      color: '#64748b',
+      padding: '8px',
+      borderRadius: '50%',
+      transition: 'all 0.2s ease'
+    },
+
+    title: {
+      fontSize: '28px',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '12px',
+      marginTop: '20px'
+    },
+
+    subtitle: {
+      fontSize: '16px',
+      color: '#64748b',
+      marginBottom: '24px'
+    },
+
+    content: {
+      padding: '0 32px 32px',
+      maxHeight: 'calc(90vh - 200px)',
+      overflowY: 'auto'
+    },
+
+    resultCard: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: '16px',
+      padding: '24px',
+      marginBottom: '24px'
+    },
+
+    resultHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '16px'
+    },
+
+    resultTitle: {
+      fontSize: '20px',
+      fontWeight: '600',
+      color: '#1e293b'
+    },
+
+    resultStats: {
+      fontSize: '14px',
+      color: '#64748b',
+      display: 'flex',
+      gap: '16px'
+    },
+
+    resultText: {
+      fontSize: '15px',
+      lineHeight: '1.6',
+      color: '#374151',
+      whiteSpace: 'pre-wrap',
+      maxHeight: '300px',
+      overflowY: 'auto',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '16px',
+      background: 'white'
+    },
+
+    actionButtons: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '12px',
+      marginTop: '24px'
+    },
+
+    actionButton: (variant = 'primary') => ({
+      padding: '12px 20px',
+      border: variant === 'primary' ? 'none' : '2px solid #e2e8f0',
+      borderRadius: '12px',
+      background: variant === 'primary' ? 'linear-gradient(135deg, #667eea, #764ba2)' :
+                  variant === 'danger' ? '#fee2e2' :
+                  variant === 'success' ? '#ecfdf5' : 'white',
+      color: variant === 'primary' ? 'white' :
+             variant === 'danger' ? '#dc2626' :
+             variant === 'success' ? '#16a34a' : '#64748b',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+      transition: 'all 0.2s ease',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px'
+    }),
+
+    navigation: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: '24px',
+      paddingTop: '24px',
+      borderTop: '1px solid #e2e8f0'
+    },
+
+    navButton: (variant = 'secondary') => ({
+      padding: '12px 24px',
+      border: variant === 'primary' ? 'none' : '2px solid #e2e8f0',
+      borderRadius: '12px',
+      background: variant === 'primary' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'white',
+      color: variant === 'primary' ? 'white' : '#64748b',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+      transition: 'all 0.2s ease'
+    })
+  };
+
+  if (!show || !result) return null;
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.header}>
+          <button style={styles.closeButton} onClick={onClose}>×</button>
+          <h2 style={styles.title}>✨ Your Story is Ready!</h2>
+          <p style={styles.subtitle}>
+            Here's your transformed masterpiece
+          </p>
+        </div>
+
+        <div style={styles.content}>
+          <div style={styles.resultCard}>
+            <div style={styles.resultHeader}>
+              <div style={styles.resultTitle}>Enhanced Story</div>
+              <div style={styles.resultStats}>
+                <span>📝 {result.wordCount || '150'} words</span>
+                <span>⚡ AI Enhanced</span>
+              </div>
+            </div>
+
+            <div style={styles.resultText}>
+              {result.enhanced || result.original}
+            </div>
+          </div>
+
+          <div style={styles.actionButtons}>
+            <button 
+              style={styles.actionButton('danger')} 
+              onClick={() => onAction('delete')}
+            >
+              🗑️ Delete
+            </button>
+            <button 
+              style={styles.actionButton('secondary')} 
+              onClick={() => onAction('rewrite')}
+            >
+              ✏️ Rewrite
+            </button>
+            <button 
+              style={styles.actionButton('success')}
+              onClick={() => onAction('create-image')}
+            >
+              🎨 Create Image
+            </button>
+            <button 
+              style={styles.actionButton('secondary')}
+              onClick={() => onAction('share')}
+            >
+              📤 Share
+            </button>
+          </div>
+
+          <div style={styles.navigation}>
+            <button
+              style={styles.navButton('secondary')}
+              onClick={onClose}
+            >
+              Close
+            </button>
+            <button
+              style={styles.navButton('primary')}
+              onClick={() => onAction('create-another')}
+            >
+              Create Another →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// MinimalistNotebook Component
+const MinimalistNotebook = ({ 
+  onTextChange, 
+  onComplete, 
+  initialText = '',
+  disabled = false 
+}) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [currentText, setCurrentText] = useState(initialText);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [showStatus, setShowStatus] = useState(false);
+  
+  const recognitionRef = useRef(null);
+  const statusTimeoutRef = useRef(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    const initialized = initSpeechRecognition();
+    if (initialized) {
+      showInitialMessage();
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
   }, []);
 
+  // Handle text changes
   useEffect(() => {
-    if (text.length > 50 && selectedStyle) {
-      const detectedFormat = detectFormatFromText(text);
-      if (detectedFormat !== selectedStyle) {
-        const lowerText = text.toLowerCase();
-        const strongIndicators = ['comic book', 'manga style', 'storyboard for', 'blog post about'];
-        const hasStrongIndicator = strongIndicators.some(indicator => lowerText.includes(indicator));
-        
-        if (hasStrongIndicator) {
-          setSelectedStyle(detectedFormat);
-        }
-      }
+    if (onTextChange) {
+      onTextChange(currentText);
     }
-  }, [text, detectFormatFromText, selectedStyle]);
+  }, [currentText, onTextChange]);
 
-  const initializeSpeechRecognition = async () => {
+  const initSpeechRecognition = () => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      setStatus({ type: 'warning', message: 'Speech recognition not supported. Please use the write button instead.' });
-      return;
+      showStatusMessage('Speech recognition not supported. Try typing instead!', 'error');
+      return false;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
-    
+    recognitionRef.current.lang = 'en-US';
+
+    recognitionRef.current.onstart = () => {
+      console.log('Speech recognition started');
+      showStatusMessage('Listening... speak naturally', 'recording');
+    };
+
     recognitionRef.current.onresult = (event) => {
       let finalTranscript = '';
+      
       for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' ';
+          finalTranscript += transcript + ' ';
         }
       }
-      if (finalTranscript) {
-        setText(prev => {
+      
+      if (finalTranscript.trim()) {
+        setCurrentText(prev => {
           const newText = prev + finalTranscript;
-          console.log('Updated text:', newText); // Debug log
           return newText;
         });
       }
     };
-    
-    recognitionRef.current.onerror = async (event) => {
+
+    recognitionRef.current.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       setIsRecording(false);
-      setShowRecordingModal(false);
-      setRecordingModalStep('recording');
       
-      const recovery = await errorRecovery.handleError(
-        event.error === 'not-allowed' ? 'microphone_denied' : 'speech_recognition_failed'
-      );
+      let message = 'Recording stopped';
+      if (event.error === 'not-allowed') {
+        message = 'Microphone access denied. Please allow microphone access and try again.';
+      } else if (event.error === 'network') {
+        message = 'Network error. Please check your connection.';
+      } else if (event.error === 'no-speech') {
+        message = 'No speech detected. Please try speaking again.';
+      }
       
-      if (recovery.action === 'show_permission_help') {
-        setModalContent(recovery.data);
-        setShowModal(true);
-      } else {
-        setStatus({ type: 'error', message: recovery.data.message });
+      showStatusMessage(message, 'error');
+    };
+
+    recognitionRef.current.onend = () => {
+      console.log('Speech recognition ended');
+      if (isRecording) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.error('Failed to restart recognition:', e);
+          setIsRecording(false);
+        }
       }
     };
+
+    return true;
+  };
+
+  const showInitialMessage = () => {
+    setTimeout(() => {
+      showStatusMessage('Click the microphone to start speaking', 'info');
+    }, 1000);
+  };
+
+  const showStatusMessage = (message, type = 'info') => {
+    setStatusMessage(message);
+    setShowStatus(true);
     
-    recognitionRef.current.onend = () => {
-      setIsRecording(false);
-      // Always show editing step - let user see even if no text was captured
-      setRecordingModalStep('editing');
-    };
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+    }
+    
+    statusTimeoutRef.current = setTimeout(() => {
+      setShowStatus(false);
+    }, 3000);
+  };
+
+  const toggleRecording = async () => {
+    if (disabled) return;
+    
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
   };
 
   const startRecording = async () => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      setStatus({ type: 'error', message: 'Speech recognition not supported. Please use the write button instead.' });
-      return;
+    if (!recognitionRef.current) {
+      const initialized = initSpeechRecognition();
+      if (!initialized) {
+        showStatusMessage('Speech recognition not available', 'error');
+        return;
+      }
     }
 
-    if (!recognitionRef.current) {
-      await initializeSpeechRecognition();
-    }
-    
     try {
-      setShowRecordingModal(true);
-      setRecordingModalStep('recording');
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
       setIsRecording(true);
-      setText('');
-      recognitionRef.current.start();
+      showStatusMessage('Starting microphone...', 'info');
+      
+      setTimeout(() => {
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error('Failed to start recognition:', error);
+          setIsRecording(false);
+          showStatusMessage('Failed to start recording. Please try again.', 'error');
+        }
+      }, 100);
+      
     } catch (error) {
+      console.error('Microphone access denied:', error);
       setIsRecording(false);
-      setShowRecordingModal(false);
-      setRecordingModalStep('recording');
-      setStatus({ type: 'error', message: 'Failed to start recording. Please try again or check microphone permissions.' });
+      showStatusMessage('Microphone access denied. Please allow microphone access.', 'error');
     }
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current && isRecording) {
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
+    
     setIsRecording(false);
     
-    // Always go to editing step when stopping - don't check text length
-    setRecordingModalStep('editing');
-  };
-
-  const handleNavClick = (buttonId) => {
-    switch(buttonId) {
-      case 'write':
-        setText('');
-        setShowRecordingModal(true);
-        setRecordingModalStep('editing');
-        break;
-      case 'user':
-      case 'upload':
-      case 'settings':
-        console.log(`${buttonId} button clicked`);
-        break;
-      default:
-        break;
+    if (currentText.trim()) {
+      showStatusMessage('Recording stopped. You can continue speaking or move to the next step', 'success');
+    } else {
+      showStatusMessage('Click the microphone to start speaking', 'info');
     }
   };
 
-  const transformStory = async () => {
-    if (!text.trim()) {
-      setStatus({ type: 'error', message: 'Please add some text first!' });
+  const clearText = () => {
+    setCurrentText('');
+    showStatusMessage('Text cleared. Ready for new input.', 'info');
+  };
+
+  const completeStory = () => {
+    if (currentText.trim().length < 10) {
+      showStatusMessage('Please add more content before continuing', 'error');
       return;
     }
 
-    // Switch to processing step and start transformation
-    setRecordingModalStep('processing');
-    setIsProcessing(true);
-    setProcessingStep(0);
-    setResult(null);
+    showStatusMessage('Story captured! Moving to next step...', 'success');
 
-    const steps = [
-      'Analyzing your text...',
-      'Detecting story format...',
-      'Enhancing with AI...',
-      'Finalizing your story...'
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      setProcessingStep(i);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (isRecording) {
+      stopRecording();
     }
 
-    try {
-      const response = await fetch('http://localhost:5001/api/enhance-story', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: text,
-          format: selectedStyle,
-          generateVisuals: selectedStyle === 'comic'
-        })
-      });
+    setTimeout(() => {
+      if (onComplete) {
+        onComplete(currentText.trim());
+      }
+    }, 500);
+  };
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+  const handleManualInput = (e) => {
+    setCurrentText(e.target.value);
+  };
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setResult(data);
-        setStatus({ 
-          type: data.demo ? 'warning' : 'success', 
-          message: data.demo ? 
-            'Demo transformation complete! Connect OpenAI for full AI magic.' :
-            'Your story has been transformed!'
-        });
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Processing error:', error);
-      
-      if (error.message.includes('Failed to fetch')) {
-        setStatus({ 
-          type: 'error', 
-          message: 'Cannot connect to server. Make sure the backend is running on port 5001.' 
-        });
-      } else {
-        const recovery = await errorRecovery.handleError('processing_failed', { originalText: text });
-        setResult({ 
-          original: text, 
-          enhanced: `Enhanced: ${text}\n\n[Demo enhancement - connect OpenAI for full AI magic]`, 
-          demo: true 
-        });
-        setStatus({ type: 'warning', message: recovery.data.message });
-      }
-    } finally {
-      setIsProcessing(false);
-      setShowRecordingModal(false);
-      setRecordingModalStep('recording');
-      setProcessingStep(0);
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      perspective: '1000px',
+      overflow: 'hidden',
+      position: 'relative',
+      fontFamily: "'Kalam', cursive",
+      filter: disabled ? 'blur(2px)' : 'none',
+      transition: 'filter 0.3s ease'
+    },
+
+    notebookContainer: {
+      position: 'relative',
+      transformStyle: 'preserve-3d',
+      animation: 'gentleFloat 6s ease-in-out infinite'
+    },
+
+    notebookPaper: {
+      width: '600px',
+      height: '700px',
+      background: '#fefefe',
+      position: 'relative',
+      boxShadow: `
+        0 25px 50px rgba(0,0,0,0.1),
+        0 5px 15px rgba(0,0,0,0.05),
+        inset 0 1px 0 rgba(255,255,255,0.9)
+      `,
+      borderRadius: '3px',
+      transform: 'rotateX(5deg) rotateY(-2deg)',
+      transition: 'transform 0.3s ease'
+    },
+
+    paperLines: {
+      position: 'absolute',
+      top: '80px',
+      left: 0,
+      right: 0,
+      bottom: '40px',
+      backgroundImage: `repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        #e8f4fd 27px,
+        #e8f4fd 28px
+      )`,
+      pointerEvents: 'none'
+    },
+
+    paperMargin: {
+      position: 'absolute',
+      left: '80px',
+      top: 0,
+      width: '2px',
+      height: '100%',
+      background: '#ffb3ba',
+      opacity: 0.6,
+      pointerEvents: 'none'
+    },
+
+    textContent: {
+      position: 'absolute',
+      top: '100px',
+      left: '100px',
+      right: '60px',
+      bottom: '60px',
+      fontFamily: "'Kalam', cursive",
+      fontSize: '18px',
+      lineHeight: '28px',
+      color: '#2c3e50'
+    },
+
+    textArea: {
+      width: '100%',
+      height: '100%',
+      background: 'transparent',
+      border: 'none',
+      outline: 'none',
+      fontFamily: "'Kalam', cursive",
+      fontSize: '18px',
+      lineHeight: '28px',
+      color: '#2c3e50',
+      resize: 'none'
+    },
+
+    statusMessage: {
+      position: 'absolute',
+      top: '-100px',
+      left: '50%',
+      transform: showStatus ? 'translateX(-50%) translateY(-10px)' : 'translateX(-50%)',
+      background: 'rgba(52, 152, 219, 0.9)',
+      color: 'white',
+      padding: '12px 20px',
+      borderRadius: '25px',
+      fontSize: '16px',
+      opacity: showStatus ? 1 : 0,
+      transition: 'all 0.3s ease',
+      backdropFilter: 'blur(10px)',
+      boxShadow: '0 4px 15px rgba(52, 152, 219, 0.3)'
+    },
+
+    controls: {
+      position: 'absolute',
+      bottom: '-80px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      display: 'flex',
+      gap: '20px',
+      alignItems: 'center'
+    },
+
+    controlBtn: {
+      width: '60px',
+      height: '60px',
+      borderRadius: '50%',
+      border: 'none',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      transition: 'all 0.3s ease',
+      fontSize: '24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+      opacity: disabled ? 0.5 : 1
+    },
+
+    recordBtn: {
+      background: isRecording 
+        ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
+        : 'linear-gradient(135deg, #e74c3c, #c0392b)',
+      color: 'white'
+    },
+
+    clearBtn: {
+      background: 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
+      color: 'white'
+    },
+
+    doneBtn: {
+      background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
+      color: 'white',
+      opacity: currentText.trim().length > 10 ? 1 : 0.5,
+      pointerEvents: currentText.trim().length > 10 ? 'auto' : 'none',
+      transform: currentText.trim().length > 10 ? 'scale(1)' : 'scale(0.95)',
+      transition: 'all 0.3s ease'
     }
   };
 
-  const clearAll = () => {
+  // Add CSS animations and button effects to head
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap');
+      
+      @keyframes gentleFloat {
+        0%, 100% { 
+          transform: translateY(0px) rotateX(2deg) rotateY(-1deg);
+        }
+        50% { 
+          transform: translateY(-8px) rotateX(-1deg) rotateY(1deg);
+        }
+      }
+
+      @keyframes sparkle {
+        0%, 100% { 
+          opacity: 0;
+          transform: scale(0) rotate(0deg);
+        }
+        50% { 
+          opacity: 1;
+          transform: scale(1) rotate(180deg);
+        }
+      }
+
+      @keyframes floatUp {
+        0% { 
+          opacity: 0;
+          transform: translateY(0px) scale(0);
+        }
+        10% {
+          opacity: 1;
+          transform: translateY(-10px) scale(1);
+        }
+        90% {
+          opacity: 1;
+          transform: translateY(-100vh) scale(1);
+        }
+        100% { 
+          opacity: 0;
+          transform: translateY(-100vh) scale(0);
+        }
+      }
+
+      .lets-begin-button:hover {
+        background: rgba(255, 255, 255, 0.25) !important;
+        border-color: rgba(255, 255, 255, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2) !important;
+      }
+
+      .lets-begin-button:active {
+        transform: translateY(0px) !important;
+      }
+      
+      .sparkle:nth-child(1) { top: 10px; left: 10px; }
+      .sparkle:nth-child(2) { top: 5px; right: 15px; }
+      .sparkle:nth-child(3) { bottom: 20px; left: 5px; }
+      .sparkle:nth-child(4) { bottom: 10px; right: 10px; }
+      .sparkle:nth-child(5) { top: 30px; left: 50%; }
+      .sparkle:nth-child(6) { bottom: 40px; right: 30%; }
+
+      .glass-button:hover {
+        transform: scale(1.05) !important;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+      }
+
+      .glass-button:active {
+        transform: scale(0.98) !important;
+      }
+
+      .play-icon {
+        width: 0;
+        height: 0;
+        border-left: 12px solid currentColor;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        margin-left: 3px;
+      }
+
+      .stop-icon {
+        width: 14px;
+        height: 14px;
+        background: currentColor;
+        border-radius: 2px;
+      }
+
+      .checkmark-icon {
+        position: relative;
+        width: 18px;
+        height: 18px;
+      }
+
+      .checkmark-icon::after {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 3px;
+        width: 6px;
+        height: 10px;
+        border: solid currentColor;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+
+      @media (max-width: 768px) {
+        .notebook-paper {
+          width: 90vw !important;
+          height: 80vh !important;
+          max-width: 450px !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
+  return (
+      <div style={styles.container}>
+        <div style={styles.notebookContainer}>
+          <div style={styles.notebookPaper}>
+            <div style={styles.paperLines} />
+            <div style={styles.paperMargin} />
+
+            <div style={styles.statusMessage}>
+              {statusMessage}
+            </div>
+
+            <div style={styles.textContent}>
+              <textarea
+                style={styles.textArea}
+                value={currentText}
+                onChange={handleManualInput}
+                placeholder="Start speaking or type your story here..."
+                disabled={disabled}
+              />
+            </div>
+
+            <div style={styles.controls}>
+              <button 
+                className="glass-button"
+                style={{...styles.controlBtn, ...styles.recordBtn}}
+                onClick={toggleRecording}
+                disabled={disabled}
+                title={isRecording ? "Stop Recording" : "Start Recording"}
+              >
+                {isRecording ? <div className="stop-icon"></div> : <div className="play-icon"></div>}
+              </button>
+              
+              <button 
+                className="glass-button"
+                style={{...styles.controlBtn, ...styles.clearBtn}}
+                onClick={clearText}
+                disabled={disabled}
+                title="Clear Text"
+              >
+                🗑️
+              </button>
+              
+              <button 
+                className="glass-button"
+                style={{...styles.controlBtn, ...styles.doneBtn}}
+                onClick={completeStory}
+                disabled={disabled || currentText.trim().length < 10}
+                title="Continue to Next Step"
+              >
+                <div className="checkmark-icon"></div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+};
+
+// Main App Component
+function App() {
+  const [currentStep, setCurrentStep] = useState('landing'); // Start with landing page
+  const [text, setText] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState(null);
+  const [showNextStepModal, setShowNextStepModal] = useState(false);
+  const [showFormatSelector, setShowFormatSelector] = useState(false);
+  const [showProcessing, setShowProcessing] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [result, setResult] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Story formats
+  const storyFormats = {
+    story: {
+      name: 'Novel',
+      description: 'Rich narrative with detailed characters and scenes',
+      icon: '📖'
+    },
+    comic: {
+      name: 'Comic/Manga',
+      description: 'Visual storytelling with panels and dialogue',
+      icon: '💥'
+    },
+    screenplay: {
+      name: 'Screenplay',
+      description: 'Professional script format for film/video',
+      icon: '🎬'
+    },
+    summary: {
+      name: 'Blog Post',
+      description: 'Engaging blog post or article format',
+      icon: '📝'
+    }
+  };
+
+  const handleLetsBegin = () => {
+    setIsTransitioning(true);
+    
+    // Start the transition animation
+    setTimeout(() => {
+      setCurrentStep('notebook');
+      setIsTransitioning(false);
+    }, 1000); // 1 second transition
+  };
+
+  const handleNotebookComplete = (capturedText) => {
+    console.log('Notebook completed with text:', capturedText);
+    setText(capturedText);
+    setCurrentStep('nextStep');
+    setShowNextStepModal(true);
+  };
+
+  const handleNextStepSelect = (choice) => {
+    setShowNextStepModal(false);
+    
+    switch(choice) {
+      case 'format':
+        setShowFormatSelector(true);
+        break;
+      case 'enhance':
+        enhanceStory();
+        break;
+      case 'refine':
+        setCurrentStep('refine');
+        break;
+    }
+  };
+
+  const enhanceStory = async () => {
+    setShowProcessing(true);
+    setCurrentStep('processing');
+    
+    // Simulate processing time (6 seconds for 3 steps at 2 seconds each)
+    setTimeout(async () => {
+      try {
+        const response = await fetch('http://localhost:5001/api/enhance-story', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: text,
+            format: selectedStyle || 'story',
+            generateVisuals: false
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          setResult(data);
+          setShowProcessing(false);
+          setShowResult(true);
+          setCurrentStep('result');
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (error) {
+        console.error('Processing error:', error);
+        // Fallback demo result
+        setResult({
+          original: text,
+          enhanced: `# Enhanced Story\n\n${text}\n\n[This is a demo enhancement. Connect your API for full AI magic!]`,
+          wordCount: text.split(' ').length,
+          demo: true
+        });
+        setShowProcessing(false);
+        setShowResult(true);
+        setCurrentStep('result');
+      }
+    }, 6000); // 6 seconds to show all processing steps
+  };
+
+  const handleFormatSelect = (format) => {
+    setSelectedStyle(format);
+    setShowFormatSelector(false);
+    enhanceStory();
+  };
+
+  const handleResultAction = (action) => {
+    console.log('Result action:', action);
+    
+    switch(action) {
+      case 'delete':
+        setResult(null);
+        setShowResult(false);
+        resetToNotebook();
+        break;
+      case 'rewrite':
+        setShowResult(false);
+        setCurrentStep('notebook');
+        break;
+      case 'create-image':
+        alert('Image generation feature coming soon!');
+        break;
+      case 'share':
+        alert('Share feature coming soon!');
+        break;
+      case 'create-another':
+        resetToNotebook();
+        break;
+    }
+  };
+
+  const resetToNotebook = () => {
+    setCurrentStep('landing'); // Reset to landing instead of notebook
     setText('');
+    setSelectedStyle(null);
     setResult(null);
-    setStatus(null);
-    setShowRecordingModal(false);
-    setRecordingModalStep('recording');
-    setProcessingStep(0);
-    setShowFormatSelector(true);
-    setSelectedStyle('');
+    setShowNextStepModal(false);
+    setShowFormatSelector(false);
+    setShowProcessing(false);
+    setShowResult(false);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setModalContent(null);
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+
+    // Landing page styles
+    landingContainer: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #4c5aa7 0%, #5a4a7a 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      color: 'white',
+      textAlign: 'center',
+      padding: '40px 20px',
+      position: 'relative',
+      opacity: isTransitioning ? 0 : 1,
+      transform: isTransitioning ? 'scale(1.1)' : 'scale(1)',
+      transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)'
+    },
+
+    landingTitle: {
+      fontSize: '4.5rem',
+      fontWeight: '800',
+      marginBottom: '24px',
+      background: 'linear-gradient(45deg, #ffffff, #e0e7ff)',
+      backgroundClip: 'text',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      textShadow: '0 4px 20px rgba(0,0,0,0.3)'
+    },
+
+    landingTagline: {
+      fontSize: '1.2rem',
+      fontWeight: '300',
+      marginBottom: '48px',
+      color: 'rgba(255, 255, 255, 0.9)',
+      maxWidth: '600px',
+      lineHeight: '1.6'
+    },
+
+    letsBeginButton: {
+      padding: '18px 48px',
+      background: 'rgba(255, 255, 255, 0.15)',
+      backdropFilter: 'blur(20px)',
+      border: '2px solid rgba(255, 255, 255, 0.3)',
+      borderRadius: '50px',
+      color: 'white',
+      fontSize: '18px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+
+    magicalParticles: {
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none'
+    },
+
+    particle: (delay, size, left, duration) => ({
+      position: 'absolute',
+      width: `${size}px`,
+      height: `${size}px`,
+      background: 'rgba(255, 255, 255, 0.6)',
+      borderRadius: '50%',
+      left: `${left}%`,
+      bottom: '-10px',
+      animation: `floatUp ${duration}s ease-in-out infinite`,
+      animationDelay: `${delay}s`,
+      opacity: 0
+    }),
+
+    modal: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.2)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(2px)'
+    },
+
+    modalContent: {
+      background: 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255, 255, 255, 0.25)',
+      borderRadius: '24px',
+      padding: '40px',
+      maxWidth: '600px',
+      width: '90%',
+      textAlign: 'center',
+      boxShadow: '0 30px 60px rgba(0,0,0,0.1)',
+      position: 'relative'
+    },
+
+    modalHeader: {
+      fontSize: '28px',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '12px'
+    },
+
+    modalSubtext: {
+      fontSize: '16px',
+      color: '#64748b',
+      marginBottom: '32px',
+      lineHeight: '1.5'
+    },
+
+    formatGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+      gap: '16px',
+      marginBottom: '30px'
+    },
+
+    formatCard: (selected) => ({
+      padding: '24px 20px',
+      border: selected ? '2px solid #667eea' : '1px solid #e2e8f0',
+      borderRadius: '16px',
+      cursor: 'pointer',
+      textAlign: 'center',
+      background: selected ? '#f0f4ff' : 'white',
+      transition: 'all 0.2s ease',
+      transform: selected ? 'translateY(-2px)' : 'none',
+      boxShadow: selected 
+        ? '0 8px 25px rgba(102, 126, 234, 0.15)' 
+        : '0 2px 8px rgba(0,0,0,0.05)'
+    }),
+
+    formatIcon: {
+      fontSize: '32px',
+      marginBottom: '12px',
+      display: 'block'
+    },
+
+    formatName: {
+      fontSize: '18px',
+      fontWeight: '600',
+      color: '#1e293b',
+      marginBottom: '8px'
+    },
+
+    formatDescription: {
+      fontSize: '14px',
+      color: '#64748b',
+      lineHeight: '1.4'
+    },
+
+    closeButton: {
+      position: 'absolute',
+      top: '16px',
+      right: '20px',
+      background: 'transparent',
+      border: 'none',
+      fontSize: '24px',
+      color: '#64748b',
+      cursor: 'pointer',
+      padding: '8px',
+      borderRadius: '8px',
+      transition: 'all 0.2s ease'
+    }
   };
 
   return (
     <div style={styles.container}>
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 768px) {
-          .comparison-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-        
-        textarea:focus {
-          border-color: #667eea !important;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-        }
-        
-        button:hover:not(:disabled) {
-          transform: translateY(-1px);
-        }
-        
-        .footer-button:hover {
-          background: rgba(102, 126, 234, 0.1) !important;
-          color: #667eea !important;
-        }
-        
-        .back-button:hover {
-          background: rgba(102, 126, 234, 0.1) !important;
-          color: #667eea !important;
-          border-color: #667eea !important;
-        }
-        
-        .modal-back-button:hover {
-          background: rgba(102, 126, 234, 0.1) !important;
-          color: #667eea !important;
-          border-color: #667eea !important;
-        }
-      `}</style>
-      
-      <div style={styles.header}>
-        <h1 style={styles.logo}>AuraMythos</h1>
-        <p style={styles.tagline}>Bringing Ideas to Realization. No Thought Required.</p>
-        <p style={styles.description}>
-          Just talk, and watch your words become something extraordinary. 
-          Like having a personal storyteller who transforms your thoughts.
-        </p>
-      </div>
+      {/* Landing Page */}
+      {currentStep === 'landing' && (
+        <div style={styles.landingContainer}>
+          {/* Magical floating particles */}
+          <div style={styles.magicalParticles}>
+            <div style={styles.particle(0, 6, 10, 8)} />
+            <div style={styles.particle(1, 4, 20, 12)} />
+            <div style={styles.particle(2, 8, 30, 10)} />
+            <div style={styles.particle(3, 5, 50, 15)} />
+            <div style={styles.particle(4, 7, 70, 9)} />
+            <div style={styles.particle(5, 4, 80, 13)} />
+            <div style={styles.particle(6, 6, 90, 11)} />
+          </div>
 
-      {/* Format Selection Modal - appears on app start */}
+          <h1 style={styles.landingTitle}>AuraMythos.ai</h1>
+          <h5 style={styles.landingTagline}>
+            Turn your ideas into fully realized stories, just like magic. <strong>Simply speak it, and watch AuraMythos give it life.</strong>
+          </h5>
+          
+          <button 
+            className="lets-begin-button"
+            style={styles.letsBeginButton}
+            onClick={handleLetsBegin}
+          >
+            Let's Begin
+          </button>
+        </div>
+      )}
+
+      {/* Notebook Interface */}
+      {(currentStep === 'notebook' || showNextStepModal || showFormatSelector || showProcessing || showResult) && (
+        <MinimalistNotebook
+          onComplete={handleNotebookComplete}
+          onTextChange={(newText) => setText(newText)}
+          initialText={text}
+          disabled={showNextStepModal || showFormatSelector || showProcessing || showResult}
+        />
+      )}
+
+      {/* Next Step Selector */}
+      <NextStepSelector
+        show={showNextStepModal}
+        currentText={text}
+        onSelect={handleNextStepSelect}
+        onClose={() => setShowNextStepModal(false)}
+      />
+
+      {/* Format Selector Modal */}
       {showFormatSelector && (
         <div style={styles.modal}>
-          <div style={styles.formatSelectorContent}>
-            <h2 style={styles.formatSelectorHeader}>Which type of story would you like to create?</h2>
-            <p style={styles.formatSelectorSubtext}>
-              Choose your format, then start recording or writing your story
+          <div style={styles.modalContent}>
+            <button 
+              style={styles.closeButton}
+              onClick={() => setShowFormatSelector(false)}
+            >
+              ×
+            </button>
+            
+            <h2 style={styles.modalHeader}>Choose Story Format</h2>
+            <p style={styles.modalSubtext}>
+              How would you like to format your story?
             </p>
             
             <div style={styles.formatGrid}>
               {Object.entries(storyFormats).map(([key, format]) => (
                 <div
                   key={key}
-                  onClick={() => handleFormatCardClick(key)}
+                  onClick={() => handleFormatSelect(key)}
                   style={styles.formatCard(selectedStyle === key)}
                 >
                   <span style={styles.formatIcon}>{format.icon}</span>
@@ -1007,283 +1514,23 @@ function App() {
                 </div>
               ))}
             </div>
-
-            <button
-              style={styles.formatSelectButton(!selectedStyle)}
-              onClick={() => selectedStyle && selectFormat(selectedStyle)}
-              disabled={!selectedStyle}
-            >
-              {selectedStyle ? `Create ${storyFormats[selectedStyle].name}` : 'Select a format above'}
-            </button>
           </div>
         </div>
       )}
 
-      {!showFormatSelector && !result && (
-        <div style={styles.mainCard}>
-          <button
-            className="back-button"
-            style={styles.backButton}
-            onClick={goBackToFormatSelection}
-            title="Choose different format"
-          >
-            ← Back
-          </button>
-          
-          <h2 style={styles.recordingPrompt}>Ready to create your {storyFormats[selectedStyle]?.name.toLowerCase()}</h2>
-          <p style={styles.recordingInstructions}>
-            Just start talking about your idea, or click Write below to type it out.
-          </p>
+      {/* Enhanced Processing Modal */}
+      <ProcessingModal
+        show={showProcessing}
+        onClose={() => setShowProcessing(false)}
+      />
 
-          <button
-            style={styles.recordButton(false)}
-            onClick={startRecording}
-          >
-            🎤
-          </button>
-        </div>
-      )}
-
-      {showRecordingModal && (
-        <div style={styles.modal}>
-          <div style={styles.modalContent}>
-            {recordingModalStep === 'recording' && (
-              <>
-                {/* Back button to return to editing */}
-                <button
-                  className="modal-back-button"
-                  style={styles.modalBackButton}
-                  onClick={() => setRecordingModalStep('editing')}
-                  title="Back to editing"
-                >
-                  ← Back
-                </button>
-                
-                <h2 style={styles.recordingHeader}>
-                  {isRecording ? 'Recording...' : 'Ready to Record'}
-                </h2>
-                <p style={styles.recordingSubtext}>
-                  {isRecording ? 
-                    'Speak naturally. Tell me your story, idea, or dream!' :
-                    'Click the microphone button below to start recording'
-                  }
-                </p>
-                
-                {isRecording && <VoiceVisualizer isRecording={isRecording} audioLevel={Math.random()} />}
-                
-                {isRecording ? (
-                  <button
-                    style={styles.stopButton}
-                    onClick={stopRecording}
-                  >
-                    ⏹️
-                  </button>
-                ) : (
-                  <button
-                    style={styles.recordButton(false)}
-                    onClick={() => {
-                      setIsRecording(true);
-                      setText(''); // Clear any previous text
-                      recognitionRef.current.start();
-                    }}
-                  >
-                    🎤
-                  </button>
-                )}
-                
-                <p style={{ fontSize: '14px', color: '#94a3b8', margin: '16px 0 0 0' }}>
-                  {isRecording ? 
-                    'Tap the stop button when you\'re done' :
-                    'Tap the microphone to begin recording'
-                  }
-                </p>
-              </>
-            )}
-
-            {recordingModalStep === 'editing' && (
-              <>
-                <h2 style={styles.textEditHeader}>Review & Edit Your Text</h2>
-                <p style={styles.textEditSubtext}>
-                  Make any changes you'd like before transforming your story
-                </p>
-                
-                <textarea
-                  style={styles.textArea}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder={text.trim() ? "Edit your transcribed text..." : "No speech detected. You can type your story here instead."}
-                  maxLength={5000}
-                />
-                
-                {selectedStyle && (
-                  <div style={styles.formatDetection}>
-                    <span style={{ fontWeight: '600' }}>Creating:</span> {storyFormats[selectedStyle].name} {storyFormats[selectedStyle].icon}
-                  </div>
-                )}
-
-                <div style={styles.modalActions}>
-                  <button
-                    style={styles.actionButton('primary')}
-                    onClick={transformStory}
-                    disabled={!text.trim() || isProcessing}
-                  >
-                    {isProcessing && <span style={styles.loadingSpinner} />}
-                    {isProcessing ? 'Transforming...' : 'Transform My Story'}
-                  </button>
-                  <button
-                    style={styles.actionButton('danger')}
-                    onClick={() => {
-                      setRecordingModalStep('recording');
-                      setIsRecording(false);
-                      setText(''); // Clear previous text
-                    }}
-                  >
-                    🎤 Record Again
-                  </button>
-                  <button
-                    style={styles.actionButton('secondary')}
-                    onClick={() => {
-                      setShowRecordingModal(false);
-                      setRecordingModalStep('recording');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-
-            {recordingModalStep === 'processing' && (
-              <>
-                <h2 style={styles.processingHeader}>Creating Your Story...</h2>
-                <p style={styles.processingSubtext}>
-                  Watch as your words transform into something extraordinary
-                </p>
-                
-                <div style={styles.processingSpinner} />
-                
-                <div style={styles.processingSteps}>
-                  {['Analyzing your text', 'Detecting story format', 'Enhancing with AI', 'Finalizing your story'].map((step, index) => (
-                    <div key={index} style={styles.processingStep(processingStep === index, processingStep > index)}>
-                      <div style={styles.stepIcon(processingStep === index, processingStep > index)}>
-                        {processingStep > index ? '✓' : index + 1}
-                      </div>
-                      <span>{step}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <p style={{ fontSize: '14px', color: '#94a3b8', marginTop: '24px' }}>
-                  This usually takes 10-30 seconds
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {status && (
-        <div style={styles.statusMessage(status.type)}>
-          {status.message}
-        </div>
-      )}
-
-      {result && (
-        <div style={styles.resultsSection}>
-          <div style={styles.resultsCard}>
-            <div style={styles.resultsHeader}>
-              <h2 style={styles.resultsTitle}>Your Transformed Story</h2>
-              <div style={styles.resultsStats}>
-                <span>📝 {result.wordCount || text.split(' ').length} words</span>
-                <span>⚡ {storyFormats[selectedStyle]?.name}</span>
-              </div>
-            </div>
-            
-            <div style={styles.comparisonGrid} className="comparison-grid">
-              <div style={styles.comparisonSection(false)}>
-                <h3 style={styles.comparisonTitle(false)}>Original</h3>
-                <div style={styles.comparisonText}>
-                  {result.original}
-                </div>
-              </div>
-              
-              <div style={styles.comparisonSection(true)}>
-                <h3 style={styles.comparisonTitle(true)}>Transformed</h3>
-                <div style={styles.comparisonText}>
-                  {result.enhanced}
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.modalActions}>
-              {result.downloadUrls && Object.entries(result.downloadUrls).map(([format, url]) => (
-                <a
-                  key={format}
-                  href={`http://localhost:5001${url}`}
-                  download
-                  style={styles.actionButton('primary')}
-                >
-                  📄 Download {format.toUpperCase()}
-                </a>
-              ))}
-              <button
-                onClick={clearAll}
-                style={styles.actionButton('secondary')}
-              >
-                🔄 Start Over
-              </button>
-            </div>
-
-            {result.demo && (
-              <div style={{
-                marginTop: '24px',
-                padding: '16px',
-                background: '#fffbeb',
-                borderRadius: '12px',
-                border: '1px solid #fed7aa',
-                textAlign: 'center',
-                fontSize: '14px',
-                color: '#92400e'
-              }}>
-                <strong>Demo Mode:</strong> This is a preview! Connect your OpenAI API key for full AI transformation magic.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showModal && modalContent && (
-        <div style={styles.modal} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.textEditHeader}>{modalContent.title}</h2>
-            <p style={styles.textEditSubtext}>{modalContent.message}</p>
-            <div style={styles.modalActions}>
-              <button
-                onClick={closeModal}
-                style={styles.actionButton('primary')}
-              >
-                {modalContent.action || 'OK'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <footer style={styles.footer}>
-        <div style={styles.footerContent}>
-          {bottomNavButtons.map((button) => (
-            <button
-              key={button.id}
-              className="footer-button"
-              style={styles.footerButton}
-              onClick={() => handleNavClick(button.id)}
-            >
-              <div style={styles.footerButtonIcon}>{button.icon}</div>
-              <span>{button.label}</span>
-            </button>
-          ))}
-        </div>
-      </footer>
+      {/* Enhanced Result Modal */}
+      <ResultModal
+        show={showResult}
+        result={result}
+        onClose={() => setShowResult(false)}
+        onAction={handleResultAction}
+      />
     </div>
   );
 }
