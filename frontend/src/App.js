@@ -1,97 +1,154 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 function App() {
-  const [currentStep, setCurrentStep] = useState('landing');
-  const [messages, setMessages] = useState([]);
-  const [currentTyping, setCurrentTyping] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [userInput, setUserInput] = useState('');
-  const [awaitingInput, setAwaitingInput] = useState(false);
-  const [currentStage, setCurrentStage] = useState('welcome');
-  const [selectedStyle, setSelectedStyle] = useState(null);
-  const [userStory, setUserStory] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [showCursor, setShowCursor] = useState(true);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  // Core app state
+  const [appState, setAppState] = useState({
+    currentStep: 'landing',
+    currentStage: 'welcome',
+    isTransitioning: false,
+    selectedStyle: null
+  });
+
+  // Conversation state
+  const [conversationState, setConversationState] = useState({
+    messages: [],
+    currentTyping: '',
+    isTyping: false,
+    awaitingInput: false,
+    showCursor: true
+  });
+
+  // User content
+  const [userContent, setUserContent] = useState({
+    input: '',
+    story: ''
+  });
+
+  // Recording state
+  const [recordingState, setRecordingState] = useState({
+    isRecording: false
+  });
   
-  const messagesEndRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const typingInProgressRef = useRef(null);
-  const lastProcessedIndexRef = useRef(0);
+  // Refs
+  const refs = {
+    messagesEnd: useRef(null),
+    recognition: useRef(null),
+    typingInProgress: useRef(null),
+    lastProcessedIndex: useRef(0),
+    messageQueue: useRef([]),
+    isProcessingQueue: useRef(false)
+  };
+
+  // Helper functions to update grouped state
+  const updateAppState = (updates) => {
+    setAppState(prev => ({ ...prev, ...updates }));
+  };
+
+  const updateConversationState = (updates) => {
+    setConversationState(prev => ({ ...prev, ...updates }));
+  };
+
+  const updateUserContent = (updates) => {
+    setUserContent(prev => ({ ...prev, ...updates }));
+  };
+
+  const updateRecordingState = (updates) => {
+    setRecordingState(prev => ({ ...prev, ...updates }));
+  };
+  const conversationIntro = [
+    { text: "Hello there! Welcome to your personal storytelling notebook. ✨", delay: 500 },
+    { text: "I'm here to help you transform your ideas into amazing stories.", delay: 1000 },
+    { text: "What type of story would you like to create today?", delay: 1000 },
+    { text: "📖 Book - A rich narrative with detailed characters", delay: 800 },
+    { text: "💭 Comic - Visual storytelling with panels and dialogue", delay: 800 },
+    { text: "🎬 Screenplay - Scene-by-scene breakdown for film", delay: 800 },
+    { text: "📝 Content - Engaging blog post or article", delay: 800 },
+    { type: 'input', placeholder: "Type your choice (book, comic, screenplay, or content)...", delay: 1000 }
+  ];
 
   // Auto-scroll to bottom when new messages are added
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    refs.messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, currentTyping]);
+  }, [conversationState.messages, conversationState.currentTyping]);
 
   // Cursor blinking
   useEffect(() => {
     const interval = setInterval(() => {
-      setShowCursor(prev => !prev);
+      updateConversationState({ showCursor: !conversationState.showCursor });
     }, 600);
     return () => clearInterval(interval);
-  }, []);
+  }, [conversationState.showCursor]);
 
   // Initialize conversation when moving from landing
   useEffect(() => {
-    if (currentStep === 'conversation') {
-      setTimeout(() => {
-        addSystemMessage("Hello there! Welcome to your personal storytelling notebook. ✨");
-        setTimeout(() => {
-          addSystemMessage("I'm here to help you transform your ideas into amazing stories.");
-          setTimeout(() => {
-            addSystemMessage("What type of story would you like to create today?");
-            setTimeout(() => {
-              addSystemMessage("📖 Book - A rich narrative with detailed characters");
-              setTimeout(() => {
-                addSystemMessage("💭 Comic - Visual storytelling with panels and dialogue");
-                setTimeout(() => {
-                  addSystemMessage("🎬 Screenplay - Scene-by-scene breakdown for film");
-                  setTimeout(() => {
-                    addSystemMessage("📝 Content - Engaging blog post or article");
-                    setTimeout(() => {
-                      setAwaitingInput(true);
-                      addInputPrompt("Type your choice (book, comic, screenplay, or content)...");
-                    }, 1000);
-                  }, 800);
-                }, 800);
-              }, 800);
-            }, 800);
-          }, 1000);
-        }, 1000);
-      }, 500);
+    if (appState.currentStep === 'conversation') {
+      // Queue all intro messages
+      refs.messageQueue.current = [...conversationIntro];
+      processMessageQueue();
     }
-  }, [currentStep]);
+  }, [appState.currentStep]);
+
+  // Process message queue
+  const processMessageQueue = async () => {
+    if (refs.isProcessingQueue.current || refs.messageQueue.current.length === 0) return;
+    
+    refs.isProcessingQueue.current = true;
+    
+    while (refs.messageQueue.current.length > 0) {
+      const message = refs.messageQueue.current.shift();
+      
+      // Wait for the delay
+      await new Promise(resolve => setTimeout(resolve, message.delay || 0));
+      
+      // Process based on message type
+      if (message.type === 'input') {
+        updateConversationState({ awaitingInput: true });
+        addInputPrompt(message.placeholder);
+      } else if (message.isLoading) {
+        addLoadingMessage(message.text);
+      } else {
+        await addSystemMessage(message.text);
+      }
+    }
+    
+    refs.isProcessingQueue.current = false;
+  };
+
+  // Add messages to queue
+  const queueMessages = (messages) => {
+    refs.messageQueue.current.push(...messages);
+    processMessageQueue();
+  };
 
   const handleLetsBegin = () => {
-    setIsTransitioning(true);
+    updateAppState({ isTransitioning: true });
     
     setTimeout(() => {
-      setCurrentStep('conversation');
-      setIsTransitioning(false);
+      updateAppState({ 
+        currentStep: 'conversation',
+        isTransitioning: false 
+      });
     }, 1200);
   };
 
   const typeMessage = async (text, callback) => {
-    if (typingInProgressRef.current) return;
+    if (refs.typingInProgress.current) return;
     
-    typingInProgressRef.current = true;
-    setIsTyping(true);
-    setCurrentTyping('');
+    refs.typingInProgress.current = true;
+    updateConversationState({ isTyping: true, currentTyping: '' });
     
     for (let i = 0; i <= text.length; i++) {
-      if (!typingInProgressRef.current) break;
-      setCurrentTyping(text.slice(0, i));
+      if (!refs.typingInProgress.current) break;
+      updateConversationState({ currentTyping: text.slice(0, i) });
       await new Promise(resolve => setTimeout(resolve, 30));
     }
     
-    typingInProgressRef.current = false;
-    setIsTyping(false);
-    setCurrentTyping('');
+    refs.typingInProgress.current = false;
+    updateConversationState({ isTyping: false, currentTyping: '' });
     
     if (callback) callback();
   };
@@ -99,41 +156,56 @@ function App() {
   const addSystemMessage = (text) => {
     return new Promise((resolve) => {
       typeMessage(text, () => {
-        setMessages(prev => [...prev, { type: 'system', content: text, timestamp: Date.now() }]);
+        setConversationState(prev => ({ 
+          ...prev,
+          messages: [...prev.messages, { type: 'system', content: text, timestamp: Date.now() }]
+        }));
         resolve();
       });
     });
   };
 
   const addUserMessage = (text) => {
-    setMessages(prev => [...prev, { type: 'user', content: text, timestamp: Date.now() }]);
+    setConversationState(prev => ({ 
+      ...prev,
+      messages: [...prev.messages, { type: 'user', content: text, timestamp: Date.now() }]
+    }));
   };
 
   const addInputPrompt = (placeholder) => {
-    setMessages(prev => [...prev, { type: 'input', placeholder, timestamp: Date.now() }]);
+    setConversationState(prev => ({ 
+      ...prev,
+      messages: [...prev.messages, { type: 'input', placeholder, timestamp: Date.now() }]
+    }));
   };
 
   const addLoadingMessage = (text) => {
-    setMessages(prev => [...prev, { type: 'loading', content: text, timestamp: Date.now() }]);
+    setConversationState(prev => ({ 
+      ...prev,
+      messages: [...prev.messages, { type: 'loading', content: text, timestamp: Date.now() }]
+    }));
   };
 
   const handleUserSubmit = async () => {
-    if (!userInput.trim() || !awaitingInput) return;
+    if (!userContent.input.trim() || !conversationState.awaitingInput) return;
     
-    const input = userInput.trim();
+    const input = userContent.input.trim();
     addUserMessage(input);
-    setUserInput('');
-    setAwaitingInput(false);
+    updateUserContent({ input: '' });
+    updateConversationState({ awaitingInput: false });
 
     // Remove the input prompt
-    setMessages(prev => prev.filter(msg => msg.type !== 'input'));
+    setConversationState(prev => ({
+      ...prev,
+      messages: prev.messages.filter(msg => msg.type !== 'input')
+    }));
 
     // Process based on current stage
-    if (currentStage === 'welcome') {
+    if (appState.currentStage === 'welcome') {
       await handleStoryTypeSelection(input);
-    } else if (currentStage === 'storytelling') {
+    } else if (appState.currentStage === 'storytelling') {
       await handleStorySubmission(input);
-    } else if (currentStage === 'choice') {
+    } else if (appState.currentStage === 'choice') {
       await handleChoiceSelection(input);
     }
   };
@@ -153,50 +225,44 @@ function App() {
     }
 
     if (selectedType) {
-      setSelectedStyle(selectedType);
-      setCurrentStage('storytelling');
+      updateAppState({ 
+        selectedStyle: selectedType,
+        currentStage: 'storytelling' 
+      });
       
-      await new Promise(resolve => setTimeout(resolve, 800));
-      await addSystemMessage(`Perfect! Let's create your ${selectedType}. 📚`);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      await addSystemMessage("Tell me your story - you can type it out below.");
-      await new Promise(resolve => setTimeout(resolve, 800));
-      await addSystemMessage("🎤 You can also use the microphone button to record your voice!");
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setAwaitingInput(true);
-      addInputPrompt(`Tell me your ${selectedType} story...`);
+      queueMessages([
+        { text: `Perfect! Let's create your ${selectedType}. 📚`, delay: 800 },
+        { text: "Tell me your story - you can type it out below.", delay: 800 },
+        { text: "🎤 You can also use the microphone button to record your voice!", delay: 800 },
+        { type: 'input', placeholder: `Tell me your ${selectedType} story...`, delay: 800 }
+      ]);
     } else {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await addSystemMessage("I didn't quite catch that. Please choose: book, comic, screenplay, or content.");
-      setAwaitingInput(true);
-      addInputPrompt("Type your choice...");
+      queueMessages([
+        { text: "I didn't quite catch that. Please choose: book, comic, screenplay, or content.", delay: 500 },
+        { type: 'input', placeholder: "Type your choice...", delay: 0 }
+      ]);
     }
   };
 
   const handleStorySubmission = async (input) => {
     if (input.length < 10) {
-      await addSystemMessage("That's a bit short! Please tell me more about your story (at least 10 characters).");
-      setAwaitingInput(true);
-      addInputPrompt(`Continue your ${selectedStyle} story...`);
+      queueMessages([
+        { text: "That's a bit short! Please tell me more about your story (at least 10 characters).", delay: 0 },
+        { type: 'input', placeholder: `Continue your ${appState.selectedStyle} story...`, delay: 0 }
+      ]);
       return;
     }
 
-    setUserStory(input);
-    setCurrentStage('choice');
+    updateUserContent({ story: input });
+    updateAppState({ currentStage: 'choice' });
     
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("Wonderful! I can see your creative energy flowing. ✨");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("How would you like me to help you with this story?");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("✨ Enhance - I'll use AI magic to transform and improve it");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("✏️ Refine - You can make manual edits and improvements");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setAwaitingInput(true);
-    addInputPrompt("Type 'enhance' or 'refine'...");
+    queueMessages([
+      { text: "Wonderful! I can see your creative energy flowing. ✨", delay: 800 },
+      { text: "How would you like me to help you with this story?", delay: 800 },
+      { text: "✨ Enhance - I'll use AI magic to transform and improve it", delay: 800 },
+      { text: "✏️ Refine - You can make manual edits and improvements", delay: 800 },
+      { type: 'input', placeholder: "Type 'enhance' or 'refine'...", delay: 800 }
+    ]);
   };
 
   const handleChoiceSelection = async (input) => {
@@ -207,71 +273,74 @@ function App() {
     } else if (lowerInput.includes('refine')) {
       await refineStory();
     } else {
-      await addSystemMessage("Please choose 'enhance' or 'refine'.");
-      setAwaitingInput(true);
-      addInputPrompt("Type 'enhance' or 'refine'...");
+      queueMessages([
+        { text: "Please choose 'enhance' or 'refine'.", delay: 0 },
+        { type: 'input', placeholder: "Type 'enhance' or 'refine'...", delay: 0 }
+      ]);
     }
   };
 
   const enhanceStory = async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Initial message
     await addSystemMessage("Excellent choice! Let me work my magic on your story... 🔮");
     
-    addLoadingMessage("🔮 Analyzing your narrative structure...");
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Loading messages sequence
+    const loadingSequence = [
+      { text: "🔮 Analyzing your narrative structure...", isLoading: true },
+      { text: "✨ Enhancing characters and dialogue...", isLoading: true },
+      { text: "🎨 Polishing the final details...", isLoading: true }
+    ];
     
-    addLoadingMessage("✨ Enhancing characters and dialogue...");
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    for (const message of loadingSequence) {
+      addLoadingMessage(message.text);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
     
-    addLoadingMessage("🎨 Polishing the final details...");
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Clear loading messages
+    setConversationState(prev => ({
+      ...prev,
+      messages: prev.messages.filter(msg => msg.type !== 'loading')
+    }));
     
-    await addSystemMessage("✨ Ta-da! Your story has been transformed!");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("═══════════════════════════════════════");
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const enhancedStory = `Enhanced ${selectedStyle}:
+    const enhancedStory = `Enhanced ${appState.selectedStyle}:
 
-${userStory}
+${userContent.story}
 
 [This has been enhanced with improved narrative flow, richer character development, and more engaging dialogue. In a real implementation, this would be processed by AI to create a truly transformed version of your story.]`;
     
-    await addSystemMessage(enhancedStory);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("═══════════════════════════════════════");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage(`📊 ${userStory.split(' ').length} words of pure magic!`);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("🎉 Your story transformation is complete! You can scroll up to review the entire conversation anytime.");
+    queueMessages([
+      { text: "✨ Ta-da! Your story has been transformed!", delay: 800 },
+      { text: "═══════════════════════════════════════", delay: 500 },
+      { text: enhancedStory, delay: 500 },
+      { text: "═══════════════════════════════════════", delay: 500 },
+      { text: `📊 ${userContent.story.split(' ').length} words of pure magic!`, delay: 800 },
+      { text: "🎉 Your story transformation is complete! You can scroll up to review the entire conversation anytime.", delay: 800 }
+    ]);
   };
 
   const refineStory = async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await addSystemMessage("Great choice! Let's refine your story together. ✏️");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("Here's your current story:");
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage(`"${userStory}"`);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await addSystemMessage("What would you like to change or improve?");
+    queueMessages([
+      { text: "Great choice! Let's refine your story together. ✏️", delay: 500 },
+      { text: "Here's your current story:", delay: 800 },
+      { text: `"${userContent.story}"`, delay: 800 },
+      { text: "What would you like to change or improve?", delay: 800 },
+      { type: 'input', placeholder: "Describe what you'd like to refine...", delay: 0 }
+    ]);
     
-    setAwaitingInput(true);
-    addInputPrompt("Describe what you'd like to refine...");
-    setCurrentStage('refining');
+    updateAppState({ currentStage: 'refining' });
   };
 
   // Speech recognition setup
   useEffect(() => {
-    if (currentStep === 'conversation') {
+    if (appState.currentStep === 'conversation') {
       initSpeechRecognition();
     }
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+      if (refs.recognition.current) {
+        refs.recognition.current.stop();
       }
     };
-  }, [currentStep]);
+  }, [appState.currentStep]);
 
   const initSpeechRecognition = () => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -279,53 +348,53 @@ ${userStory}
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    refs.recognition.current = new SpeechRecognition();
+    refs.recognition.current.continuous = true;
+    refs.recognition.current.interimResults = true;
+    refs.recognition.current.lang = 'en-US';
 
-    recognitionRef.current.onresult = (event) => {
+    refs.recognition.current.onresult = (event) => {
       let newFinalTranscript = '';
       
-      for (let i = lastProcessedIndexRef.current; i < event.results.length; i++) {
+      for (let i = refs.lastProcessedIndex.current; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           newFinalTranscript += transcript + ' ';
         }
       }
       
-      lastProcessedIndexRef.current = event.results.length;
+      refs.lastProcessedIndex.current = event.results.length;
       
       if (newFinalTranscript.trim()) {
-        setUserInput(prev => prev + newFinalTranscript);
+        updateUserContent(prev => ({ ...prev, input: prev.input + newFinalTranscript }));
       }
     };
 
-    recognitionRef.current.onstart = () => {
-      lastProcessedIndexRef.current = 0;
+    refs.recognition.current.onstart = () => {
+      refs.lastProcessedIndex.current = 0;
     };
 
-    recognitionRef.current.onerror = (event) => {
+    refs.recognition.current.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
-      setIsRecording(false);
+      updateRecordingState({ isRecording: false });
     };
 
-    recognitionRef.current.onend = () => {
-      setIsRecording(false);
+    refs.recognition.current.onend = () => {
+      updateRecordingState({ isRecording: false });
     };
 
     return true;
   };
 
   const toggleRecording = async () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      setIsRecording(false);
+    if (recordingState.isRecording) {
+      refs.recognition.current?.stop();
+      updateRecordingState({ isRecording: false });
     } else {
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        setIsRecording(true);
-        recognitionRef.current?.start();
+        updateRecordingState({ isRecording: true });
+        refs.recognition.current?.start();
       } catch (error) {
         console.error('Microphone access denied:', error);
       }
@@ -335,7 +404,7 @@ ${userStory}
   return (
     <div style={{
       minHeight: '100vh',
-      background: currentStep === 'landing' 
+      background: appState.currentStep === 'landing' 
         ? 'linear-gradient(135deg, #4c5aa7 0%, #5a4a7a 100%)'
         : 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       display: 'flex',
@@ -437,11 +506,28 @@ ${userStory}
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
             background: rgba(255, 255, 255, 0.25) !important;
           }
+
+          .send-icon {
+            position: relative;
+            width: 18px;
+            height: 18px;
+          }
+
+          .send-icon::before {
+            content: '→';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: bold;
+            line-height: 1;
+          }
         `}
       </style>
 
       {/* LANDING PAGE */}
-      {currentStep === 'landing' && (
+      {appState.currentStep === 'landing' && (
         <div style={{
           minHeight: '100vh',
           display: 'flex',
@@ -452,8 +538,8 @@ ${userStory}
           textAlign: 'center',
           padding: '40px 20px',
           position: 'relative',
-          opacity: isTransitioning ? 0 : 1,
-          transform: isTransitioning ? 'scale(0.95) translateY(20px)' : 'scale(1) translateY(0)',
+          opacity: appState.isTransitioning ? 0 : 1,
+          transform: appState.isTransitioning ? 'scale(0.95) translateY(20px)' : 'scale(1) translateY(0)',
           transition: 'all 1.2s cubic-bezier(0.23, 1, 0.32, 1)',
           width: '100%'
         }}>
@@ -488,7 +574,8 @@ ${userStory}
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            textShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            textShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
           }}>
             AuraMythos.ai
           </h1>
@@ -498,7 +585,8 @@ ${userStory}
             marginBottom: '48px',
             color: 'rgba(255, 255, 255, 0.9)',
             maxWidth: '600px',
-            lineHeight: '1.6'
+            lineHeight: '1.6',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
           }}>
             Turn your ideas into fully realized stories, just like magic. <strong>Simply speak it, and watch AuraMythos give it life.</strong>
           </h5>
@@ -529,7 +617,7 @@ ${userStory}
       )}
 
       {/* CONVERSATION INTERFACE */}
-      {currentStep === 'conversation' && (
+      {appState.currentStep === 'conversation' && (
         <div style={{
           position: 'relative',
           transformStyle: 'preserve-3d',
@@ -585,7 +673,7 @@ ${userStory}
                 top: '100px',
                 left: '100px',
                 right: '60px',
-                bottom: awaitingInput ? '120px' : '40px',
+                bottom: conversationState.awaitingInput ? '120px' : '40px',
                 fontFamily: "'Special Elite', 'Courier New', monospace",
                 fontSize: '16px',
                 lineHeight: '1.8',
@@ -593,15 +681,17 @@ ${userStory}
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 scrollBehavior: 'smooth'
-              }}>
+              }}
+            >
               {/* All messages */}
-              {messages.map((message, index) => {
+              {conversationState.messages.map((message, index) => {
                 if (message.type === 'system') {
                   return (
                     <div key={index} style={{
                       marginBottom: '12px',
                       lineHeight: '1.8',
-                      whiteSpace: 'pre-wrap'
+                      whiteSpace: 'pre-wrap',
+                      minHeight: '28.8px'
                     }}>
                       {message.content}
                     </div>
@@ -615,7 +705,8 @@ ${userStory}
                       marginLeft: '20px',
                       color: '#667eea',
                       fontStyle: 'italic',
-                      lineHeight: '1.8'
+                      lineHeight: '1.8',
+                      minHeight: '28.8px'
                     }}>
                       > {message.content}
                     </div>
@@ -627,7 +718,8 @@ ${userStory}
                     <div key={index} style={{
                       marginBottom: '12px',
                       color: '#9ca3af',
-                      lineHeight: '1.8'
+                      lineHeight: '1.8',
+                      minHeight: '28.8px'
                     }}>
                       <span className="loading-dot">{message.content}</span>
                     </div>
@@ -638,30 +730,31 @@ ${userStory}
               })}
               
               {/* Currently typing */}
-              {isTyping && (
+              {conversationState.isTyping && (
                 <div style={{
                   marginBottom: '12px',
-                  lineHeight: '1.8'
+                  lineHeight: '1.8',
+                  minHeight: '28.8px' // 1.8 * 16px font size
                 }}>
-                  {currentTyping}
-                  {showCursor && (
+                  {conversationState.currentTyping}
+                  {conversationState.showCursor && (
                     <span style={{
                       display: 'inline-block',
                       width: '2px',
                       height: '20px',
                       background: '#667eea',
                       marginLeft: '2px',
-                      animation: 'blink 1s infinite'
+                      verticalAlign: 'text-bottom'
                     }} />
                   )}
                 </div>
               )}
               
-              <div ref={messagesEndRef} />
+              <div ref={refs.messagesEnd} />
             </div>
 
-            {/* INPUT AREA WITH SUBMIT BUTTON */}
-            {awaitingInput && (
+            {/* INPUT AREA WITH SEND ICON */}
+            {conversationState.awaitingInput && (
               <div style={{
                 position: 'absolute',
                 bottom: '40px',
@@ -689,21 +782,29 @@ ${userStory}
                     minHeight: '24px',
                     maxHeight: '120px'
                   }}
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder={messages.find(m => m.type === 'input')?.placeholder || "Type your response..."}
+                  value={userContent.input}
+                  onChange={(e) => updateUserContent({ input: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.shiftKey) {
+                      // Shift + Enter = Send message
+                      e.preventDefault();
+                      handleUserSubmit();
+                    }
+                    // Regular Enter = Line break (default textarea behavior)
+                  }}
+                  placeholder={conversationState.messages.find(m => m.type === 'input')?.placeholder || "Type your response... (Shift+Enter to send)"}
                 />
                 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {currentStage === 'storytelling' && (
+                  {appState.currentStage === 'storytelling' && (
                     <button
                       style={{
-                        width: '32px',
-                        height: '32px',
+                        width: '40px',
+                        height: '40px',
                         borderRadius: '50%',
                         border: '1px solid rgba(183, 173, 235, 0.3)',
                         cursor: 'pointer',
-                        background: isRecording 
+                        background: recordingState.isRecording 
                           ? 'rgba(155, 144, 210, 0.4)' 
                           : 'rgba(183, 173, 235, 0.25)',
                         backdropFilter: 'blur(20px)',
@@ -711,34 +812,43 @@ ${userStory}
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px'
+                        fontSize: '14px',
+                        transition: 'all 0.2s ease'
                       }}
                       onClick={toggleRecording}
-                      title={isRecording ? "Stop Recording" : "Start Recording"}
+                      title={recordingState.isRecording ? "Stop Recording" : "Start Recording"}
                     >
-                      {isRecording ? <div className="stop-icon"></div> : <div className="play-icon"></div>}
+                      {recordingState.isRecording ? <div className="stop-icon"></div> : <div className="play-icon"></div>}
                     </button>
                   )}
                   
                   <button
                     style={{
-                      padding: '8px 16px',
-                      background: userInput.trim() 
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: userContent.input.trim() 
                         ? 'rgba(183, 173, 235, 0.8)' 
                         : 'rgba(183, 173, 235, 0.3)',
                       border: '1px solid rgba(183, 173, 235, 0.4)',
-                      borderRadius: '6px',
-                      color: userInput.trim() ? '#2c3e50' : 'rgba(110, 99, 158, 0.6)',
-                      cursor: userInput.trim() ? 'pointer' : 'not-allowed',
-                      fontSize: '14px',
-                      fontWeight: '500',
+                      color: userContent.input.trim() ? '#2c3e50' : 'rgba(110, 99, 158, 0.6)',
+                      cursor: userContent.input.trim() ? 'pointer' : 'not-allowed',
+                      fontSize: '18px',
+                      fontWeight: '600',
                       transition: 'all 0.2s ease',
-                      backdropFilter: 'blur(10px)'
+                      backdropFilter: 'blur(10px)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: userContent.input.trim() 
+                        ? '0 4px 20px rgba(183, 173, 235, 0.4)' 
+                        : 'none'
                     }}
                     onClick={handleUserSubmit}
-                    disabled={!userInput.trim()}
+                    disabled={!userContent.input.trim()}
+                    title="Send message (Shift+Enter)"
                   >
-                    Send
+                    ↗
                   </button>
                 </div>
               </div>
