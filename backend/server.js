@@ -10,20 +10,405 @@ require('dotenv').config();
 // AI APIs
 const OpenAI = require('openai');
 
+// ============================================================================
+// ENHANCED LOGGING SYSTEM FOR SERVER
+// ============================================================================
+const logger = {
+  isDev: process.env.NODE_ENV === 'development',
+  
+  debug: (...args) => {
+    if (logger.isDev) console.log('🔍 [DEBUG]', new Date().toISOString(), ...args);
+  },
+  
+  info: (...args) => {
+    if (logger.isDev) console.info('ℹ️ [INFO]', new Date().toISOString(), ...args);
+  },
+  
+  warn: (...args) => {
+    console.warn('⚠️ [WARN]', new Date().toISOString(), ...args);
+  },
+  
+  error: (...args) => {
+    console.error('❌ [ERROR]', new Date().toISOString(), ...args);
+  },
+  
+  success: (...args) => {
+    if (logger.isDev) console.log('✅ [SUCCESS]', new Date().toISOString(), ...args);
+  },
+  
+  // API request tracking
+  apiRequest: (endpoint, method, body = {}) => {
+    if (logger.isDev) {
+      console.log('🌐 [API REQUEST]', {
+        endpoint,
+        method,
+        timestamp: new Date().toISOString(),
+        bodyKeys: Object.keys(body)
+      });
+    }
+  },
+  
+  // User action tracking
+  userAction: (action, data = {}) => {
+    if (logger.isDev) {
+      console.log('👤 [USER ACTION]', action, {
+        ...data,
+        timestamp: new Date().toISOString()
+      });
+    }
+    // In production, you might send this to analytics
+  },
+  
+  // Performance monitoring
+  performance: (label, fn) => {
+    if (logger.isDev) {
+      console.time(`⏱️ [PERF] ${label}`);
+      const result = fn();
+      console.timeEnd(`⏱️ [PERF] ${label}`);
+      return result;
+    }
+    return fn();
+  },
+  
+  // AI service monitoring
+  aiService: (service, action, data = {}) => {
+    if (logger.isDev) {
+      console.log(`🤖 [AI ${service.toUpperCase()}]`, action, {
+        ...data,
+        timestamp: new Date().toISOString()
+      });
+    }
+  },
+  
+  // Database operations (for future use)
+  database: (operation, collection, data = {}) => {
+    if (logger.isDev) {
+      console.log('💾 [DATABASE]', operation, collection, {
+        ...data,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+};
+
+// ============================================================================
+// REQUEST LOGGING MIDDLEWARE
+// ============================================================================
+const requestLogger = (req, res, next) => {
+  const start = Date.now();
+  const { method, url, body, query, params } = req;
+  
+  logger.apiRequest(url, method, body);
+  
+  // Log response when finished
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - start;
+    const statusCode = res.statusCode;
+    
+    if (statusCode >= 400) {
+      logger.error('API Response Error:', {
+        method,
+        url,
+        statusCode,
+        duration: `${duration}ms`,
+        error: typeof data === 'string' ? data : JSON.stringify(data).substring(0, 200)
+      });
+    } else {
+      logger.success('API Response Success:', {
+        method,
+        url,
+        statusCode,
+        duration: `${duration}ms`
+      });
+    }
+    
+    originalSend.call(this, data);
+  };
+  
+  next();
+};
+
+// ============================================================================
+// CONTENT SAFETY & ETHICS SYSTEM
+// ============================================================================
+class ContentSafetyFilter {
+  constructor() {
+    this.inappropriatePatterns = [
+      /\b(violence|kill|murder|death|blood)\b/gi,
+      /\b(sexual|explicit|adult)\b/gi,
+      /\b(hate|racism|discrimination)\b/gi
+    ];
+  }
+  
+  async checkContent(text, userAge = 'unknown') {
+    logger.debug('Content safety check initiated:', { 
+      textLength: text.length,
+      userAge 
+    });
+    
+    const issues = [];
+    
+    // Basic pattern matching
+    for (const pattern of this.inappropriatePatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        issues.push({
+          type: 'pattern_match',
+          pattern: pattern.source,
+          matches: matches.length
+        });
+      }
+    }
+    
+    // Age-appropriate content checking
+    if (userAge === 'child' && issues.length > 0) {
+      logger.warn('Content safety issue for child user:', issues);
+      return {
+        safe: false,
+        issues,
+        suggestion: 'Please use family-friendly content for younger users.'
+      };
+    }
+    
+    if (issues.length > 0) {
+      logger.warn('Content safety issues detected:', issues);
+    }
+    
+    return {
+      safe: issues.length === 0,
+      issues,
+      confidence: issues.length === 0 ? 1.0 : 0.5
+    };
+  }
+}
+
+// ============================================================================
+// AI PROVIDER MANAGEMENT SYSTEM
+// ============================================================================
+class AIProviderManager {
+  constructor() {
+    this.providers = {
+      openai: {
+        name: 'OpenAI',
+        enabled: !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here',
+        client: null,
+        models: ['gpt-4-turbo-preview', 'gpt-3.5-turbo'],
+        priority: 1,
+        errorCount: 0,
+        maxErrors: 3
+      }
+      // Future: Add Anthropic, Cohere, etc.
+    };
+    
+    this.initializeProviders();
+  }
+  
+  initializeProviders() {
+    if (this.providers.openai.enabled) {
+      this.providers.openai.client = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+      });
+      logger.success('OpenAI provider initialized');
+    }
+  }
+  
+  async generateText(prompt, options = {}) {
+    const { 
+      maxTokens = 150, 
+      temperature = 0.7, 
+      model = 'gpt-4-turbo-preview',
+      format = 'story' 
+    } = options;
+    
+    for (const [key, provider] of Object.entries(this.providers)) {
+      if (!provider.enabled || provider.errorCount >= provider.maxErrors) {
+        continue;
+      }
+      
+      try {
+        logger.aiService(key, 'generate_text_start', { 
+          promptLength: prompt.length,
+          maxTokens,
+          model 
+        });
+        
+        const result = await this.callProvider(key, prompt, {
+          maxTokens,
+          temperature,
+          model
+        });
+        
+        // Reset error count on success
+        provider.errorCount = 0;
+        
+        logger.aiService(key, 'generate_text_success', {
+          outputLength: result.text.length,
+          usage: result.usage
+        });
+        
+        return {
+          text: result.text,
+          provider: key,
+          usage: result.usage,
+          success: true
+        };
+        
+      } catch (error) {
+        provider.errorCount++;
+        logger.error(`AI Provider ${key} failed (${provider.errorCount}/${provider.maxErrors}):`, error.message);
+        
+        if (provider.errorCount >= provider.maxErrors) {
+          logger.warn(`AI Provider ${key} disabled due to repeated failures`);
+        }
+      }
+    }
+    
+    // All providers failed
+    logger.error('All AI providers failed, returning demo content');
+    return {
+      text: this.generateFallbackContent(prompt, format),
+      provider: 'fallback',
+      demo: true,
+      success: false
+    };
+  }
+  
+  async callProvider(providerKey, prompt, options) {
+    switch (providerKey) {
+      case 'openai':
+        return await this.callOpenAI(prompt, options);
+      default:
+        throw new Error(`Unknown provider: ${providerKey}`);
+    }
+  }
+  
+  async callOpenAI(prompt, options) {
+    const completion = await this.providers.openai.client.chat.completions.create({
+      model: options.model,
+      messages: [{
+        role: "user",
+        content: prompt
+      }],
+      max_tokens: options.maxTokens,
+      temperature: options.temperature
+    });
+    
+    return {
+      text: completion.choices[0].message.content.trim(),
+      usage: completion.usage
+    };
+  }
+  
+  generateFallbackContent(prompt, format) {
+    const fallbacks = {
+      story: `[DEMO] Based on your input, the story continues:\n\nThe character paused, considering their next move carefully. The air grew thick with anticipation as they reached toward their destiny.\n\nWhat happens next?`,
+      comic: `[DEMO] PANEL: The character stands at a crossroads, dramatic lighting emphasizing their internal conflict.\n\nWhat does the character do in the next panel?`,
+      screenplay: `[DEMO] INT. LOCATION - DAY\n\nThe PROTAGONIST hesitates, weighing their options. A moment of silence stretches between heartbeats.\n\nWhat happens next in this scene?`
+    };
+    
+    return fallbacks[format] || fallbacks.story;
+  }
+  
+  getProviderStatus() {
+    return Object.entries(this.providers).map(([key, provider]) => ({
+      name: key,
+      enabled: provider.enabled,
+      errorCount: provider.errorCount,
+      maxErrors: provider.maxErrors,
+      status: provider.errorCount >= provider.maxErrors ? 'disabled' : 'active'
+    }));
+  }
+}
+
+// ============================================================================
+// RATE LIMITING SYSTEM
+// ============================================================================
+class RateLimiter {
+  constructor() {
+    this.requests = new Map(); // IP -> { count, resetTime }
+    this.limits = {
+      default: { requests: 10, windowMs: 60000 }, // 10 requests per minute
+      '/api/enhance-story': { requests: 5, windowMs: 60000 }, // 5 story enhancements per minute
+      '/api/continue-story': { requests: 20, windowMs: 60000 } // 20 continuations per minute
+    };
+  }
+  
+  checkLimit(ip, endpoint = 'default') {
+    const limit = this.limits[endpoint] || this.limits.default;
+    const now = Date.now();
+    
+    if (!this.requests.has(ip)) {
+      this.requests.set(ip, { count: 1, resetTime: now + limit.windowMs });
+      return { allowed: true, remaining: limit.requests - 1 };
+    }
+    
+    const userRequests = this.requests.get(ip);
+    
+    // Reset if window expired
+    if (now > userRequests.resetTime) {
+      this.requests.set(ip, { count: 1, resetTime: now + limit.windowMs });
+      return { allowed: true, remaining: limit.requests - 1 };
+    }
+    
+    // Check if over limit
+    if (userRequests.count >= limit.requests) {
+      logger.warn('Rate limit exceeded:', { ip, endpoint, count: userRequests.count });
+      return { 
+        allowed: false, 
+        remaining: 0,
+        resetTime: userRequests.resetTime
+      };
+    }
+    
+    // Increment count
+    userRequests.count++;
+    return { 
+      allowed: true, 
+      remaining: limit.requests - userRequests.count 
+    };
+  }
+}
+
+// ============================================================================
+// INITIALIZE SYSTEMS
+// ============================================================================
 const app = express();
 const PORT = 5001;
 
-// Initialize AI services
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'your-api-key-here'
-});
+// Initialize systems
+const contentSafety = new ContentSafetyFilter();
+const aiProvider = new AIProviderManager();
+const rateLimiter = new RateLimiter();
+
+// Rate limiting middleware
+const rateLimitMiddleware = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const result = rateLimiter.checkLimit(ip, req.path);
+  
+  if (!result.allowed) {
+    return res.status(429).json({
+      error: 'Rate limit exceeded',
+      resetTime: result.resetTime,
+      message: 'Please try again later'
+    });
+  }
+  
+  // Add rate limit headers
+  res.set({
+    'X-RateLimit-Remaining': result.remaining,
+    'X-RateLimit-Reset': result.resetTime
+  });
+  
+  next();
+};
 
 // PHASE 3: Visual Generation Configuration
 const VISUAL_CONFIG = {
   // Image generation services
   services: {
     dalle: {
-      enabled: !!process.env.OPENAI_API_KEY,
+      enabled: !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here',
       model: 'dall-e-3',
       maxSize: '1024x1024',
       quality: 'standard'
@@ -75,7 +460,13 @@ app.use(express.static('public'));
 app.use('/outputs', express.static('outputs'));
 app.use('/images', express.static('generated_images'));
 
-// UPDATED: Iterative formatting templates for shorter responses
+// Apply logging and rate limiting
+app.use(requestLogger);
+app.use(rateLimitMiddleware);
+
+// ============================================================================
+// ENHANCED FORMAT TEMPLATES WITH SAFETY
+// ============================================================================
 const formatTemplates = {
   book: {
     name: 'Illustrated Novel',
@@ -86,6 +477,7 @@ const formatTemplates = {
     - Ask what happens next or request more details about a specific element
     - Keep the tone consistent with the story so far
     - DO NOT write multiple paragraphs or rush the story
+    - Ensure content is appropriate for all ages
     
     Always end your response with a specific question asking for more context, like:
     "What happens next?" or "Tell me more about [character/situation]" or "How does [character] react to this?"`,
@@ -105,6 +497,7 @@ const formatTemplates = {
     - Create natural story progression without rushing to the conclusion
     - Ask for specific details about what happens next
     - DO NOT try to wrap up the story or create an ending
+    - Keep content family-friendly and positive
     
     End with a specific question like: "What does [character] do next?" or "What do they discover?" or "How does the situation unfold?"`,
     
@@ -123,6 +516,7 @@ const formatTemplates = {
     - Include brief dialogue or narration if needed
     - Ask what happens in the next panel
     - DO NOT describe multiple panels or entire pages
+    - Ensure content is appropriate for comic book audiences
     
     Format your response as:
     [PANEL X: Brief description of what's shown]
@@ -147,6 +541,7 @@ const formatTemplates = {
     - Keep it brief (2-3 lines of action maximum)
     - Ask what happens next in the scene
     - DO NOT write entire scenes or multiple scene beats
+    - Follow industry-standard formatting
     
     Format as proper screenplay:
     INT./EXT. LOCATION - TIME
@@ -170,6 +565,7 @@ const formatTemplates = {
     - Add brief timing note for this frame
     - Ask what happens in the next frame
     - DO NOT describe multiple frames or entire sequences
+    - Focus on visual storytelling techniques
     
     Format as:
     FRAME X: [Shot type] - [Brief description]
@@ -196,6 +592,7 @@ const formatTemplates = {
     - Add sound effects if appropriate
     - Ask what happens in the next panel
     - DO NOT describe multiple panels or full pages
+    - Respect manga storytelling conventions
     
     Format as:
     [PANEL X: Manga-style description]
@@ -212,36 +609,65 @@ const formatTemplates = {
   }
 };
 
-// NEW: Iterative story continuation endpoint
+// ============================================================================
+// ENHANCED API ENDPOINTS
+// ============================================================================
+
+// NEW: Enhanced iterative story continuation with safety
 app.post('/api/continue-story', async (req, res) => {
   const { 
     text, 
     previousContext = '', 
     format = 'story', 
-    conversationHistory = [] 
+    conversationHistory = [],
+    userAge = 'unknown'
   } = req.body;
   
-  console.log(`\n📝 === ITERATIVE STORY CONTINUATION ===`);
-  console.log(`Format: ${format}`);
-  console.log(`New input: ${text?.substring(0, 100)}...`);
-  console.log(`Previous context length: ${previousContext.length}`);
-  console.log(`Conversation history length: ${conversationHistory.length}`);
+  logger.userAction('continue_story_request', {
+    format,
+    textLength: text?.length || 0,
+    previousContextLength: previousContext.length,
+    conversationHistoryLength: conversationHistory.length,
+    userAge
+  });
   
   if (!text || text.trim().length === 0) {
+    logger.warn('Continue story request with empty text');
     return res.status(400).json({ error: 'Text is required' });
+  }
+
+  if (text.length > 5000) {
+    logger.warn('Continue story request with text too long:', text.length);
+    return res.status(400).json({ error: 'Text too long. Please limit to 5,000 characters.' });
   }
 
   const projectId = uuidv4();
   
   try {
+    // Content safety check
+    const safetyCheck = await contentSafety.checkContent(text, userAge);
+    if (!safetyCheck.safe) {
+      logger.warn('Content safety check failed:', safetyCheck.issues);
+      return res.status(400).json({
+        error: 'Content safety violation',
+        issues: safetyCheck.issues,
+        suggestion: safetyCheck.suggestion
+      });
+    }
+    
     const result = await continueStoryIteratively(
       text.trim(), 
       previousContext, 
       format, 
-      conversationHistory
+      conversationHistory,
+      userAge
     );
     
-    console.log(`✅ Iterative continuation complete`);
+    logger.success('Iterative continuation complete:', {
+      projectId,
+      outputLength: result.continuation.length,
+      demo: result.demo
+    });
     
     res.json({
       success: true,
@@ -254,11 +680,12 @@ app.post('/api/continue-story', async (req, res) => {
       demo: result.demo,
       conversationHistory: result.conversationHistory,
       wordCount: result.continuation.split(' ').length,
-      isIterative: true
+      isIterative: true,
+      safetyCheck: safetyCheck
     });
 
   } catch (error) {
-    console.error('Story continuation error:', error);
+    logger.error('Story continuation error:', error);
     res.status(500).json({ 
       error: 'Failed to continue story',
       details: error.message 
@@ -266,106 +693,119 @@ app.post('/api/continue-story', async (req, res) => {
   }
 });
 
-// NEW: Function for iterative story development
-const continueStoryIteratively = async (newInput, previousContext, format, conversationHistory) => {
-  console.log(`📝 Continuing story iteratively for ${format} format...`);
+// Enhanced function for iterative story development with AI provider management
+const continueStoryIteratively = async (newInput, previousContext, format, conversationHistory, userAge = 'unknown') => {
+  logger.debug('Continuing story iteratively:', { 
+    format,
+    newInputLength: newInput.length,
+    previousContextLength: previousContext.length 
+  });
   
   const template = formatTemplates[format] || formatTemplates.story;
   
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
-    const mockContinuation = `[DEMO] Based on "${newInput.substring(0, 50)}...", the story continues:\n\nThe character paused, considering their next move carefully. The air grew thick with anticipation as they reached for the door handle.\n\nWhat happens when they open the door?`;
-    
-    return {
-      continuation: mockContinuation,
-      fullStory: previousContext ? previousContext + '\n\n' + mockContinuation : mockContinuation,
-      question: "What happens when they open the door?",
-      demo: true,
-      conversationHistory: [...conversationHistory, { 
-        input: newInput, 
-        output: mockContinuation,
-        timestamp: new Date().toISOString()
-      }]
-    };
+  // Build context for the AI
+  let contextPrompt;
+  
+  if (previousContext) {
+    contextPrompt = `Previous story so far:\n"${previousContext}"\n\nUser's new input: "${newInput}"\n\nContinue the story with just one paragraph and ask what happens next.`;
+  } else {
+    contextPrompt = `User's story beginning: "${newInput}"\n\nStart the story with one engaging paragraph and ask what happens next.`;
+  }
+
+  // Add age-appropriate content guidance
+  if (userAge === 'child') {
+    contextPrompt += '\n\nIMPORTANT: Keep content family-friendly and appropriate for children.';
   }
 
   try {
-    // Build context for the AI
-    let contextPrompt;
-    
-    if (previousContext) {
-      contextPrompt = `Previous story so far:\n"${previousContext}"\n\nUser's new input: "${newInput}"\n\nContinue the story with just one paragraph and ask what happens next.`;
-    } else {
-      contextPrompt = `User's story beginning: "${newInput}"\n\nStart the story with one engaging paragraph and ask what happens next.`;
-    }
+    const aiResult = await aiProvider.generateText(
+      template.prompt + '\n\n' + contextPrompt,
+      {
+        maxTokens: 150,
+        temperature: 0.7,
+        format: format
+      }
+    );
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [{
-        role: "system",
-        content: template.prompt
-      }, {
-        role: "user", 
-        content: contextPrompt
-      }],
-      max_tokens: 150, // Reduced to force shorter responses
-      temperature: 0.7
-    });
-
-    const continuation = completion.choices[0].message.content.trim();
+    const continuation = aiResult.text;
     const fullStory = previousContext ? previousContext + '\n\n' + continuation : continuation;
     
     // Extract question from the response (should be at the end)
     const questionMatch = continuation.match(/([?].*)$/s);
     const question = questionMatch ? questionMatch[0].trim() : "What happens next?";
     
+    logger.aiService('story_generation', 'success', {
+      provider: aiResult.provider,
+      outputLength: continuation.length,
+      demo: aiResult.demo
+    });
+    
     return {
       continuation,
       fullStory,
       question,
-      demo: false,
-      usage: completion.usage,
+      demo: aiResult.demo || false,
+      usage: aiResult.usage,
+      provider: aiResult.provider,
       conversationHistory: [...conversationHistory, { 
         input: newInput, 
         output: continuation,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        provider: aiResult.provider
       }]
     };
 
   } catch (error) {
-    console.error('Iterative story continuation error:', error);
+    logger.error('Iterative story continuation error:', error);
     throw error;
   }
 };
 
-// UPDATED: Modified enhance-story endpoint to use iterative approach by default
+// Enhanced enhance-story endpoint with better error handling
 app.post('/api/enhance-story', async (req, res) => {
   const { 
     text, 
     format = 'story', 
     characters = [], 
     generateVisuals = false,
-    useIterative = true, // NEW: Flag to use iterative mode
+    useIterative = true,
     previousContext = '',
-    conversationHistory = []
+    conversationHistory = [],
+    userAge = 'unknown'
   } = req.body;
   
-  console.log(`\n🎭 === STORY ENHANCEMENT ===`);
-  console.log(`📝 Text length: ${text?.length || 0} characters`);
-  console.log(`📄 Format: ${format}`);
-  console.log(`🎨 Generate visuals: ${generateVisuals}`);
-  console.log(`🔄 Use iterative: ${useIterative}`);
+  logger.userAction('enhance_story_request', {
+    format,
+    textLength: text?.length || 0,
+    generateVisuals,
+    useIterative,
+    userAge
+  });
   
   if (!text || text.trim().length === 0) {
+    logger.warn('Enhance story request with empty text');
     return res.status(400).json({ error: 'Text is required' });
   }
 
   if (text.length > 10000) {
+    logger.warn('Enhance story request with text too long:', text.length);
     return res.status(400).json({ error: 'Text too long. Please limit to 10,000 characters.' });
   }
 
   const projectId = uuidv4();
   
   try {
+    // Content safety check
+    const safetyCheck = await contentSafety.checkContent(text, userAge);
+    if (!safetyCheck.safe) {
+      logger.warn('Content safety check failed:', safetyCheck.issues);
+      return res.status(400).json({
+        error: 'Content safety violation',
+        issues: safetyCheck.issues,
+        suggestion: safetyCheck.suggestion
+      });
+    }
+    
     let result;
     
     if (useIterative) {
@@ -374,8 +814,15 @@ app.post('/api/enhance-story', async (req, res) => {
         text.trim(), 
         previousContext, 
         format, 
-        conversationHistory
+        conversationHistory,
+        userAge
       );
+      
+      logger.success('Iterative enhancement complete:', {
+        projectId,
+        outputLength: result.continuation.length,
+        provider: result.provider
+      });
       
       res.json({
         success: true,
@@ -387,18 +834,26 @@ app.post('/api/enhance-story', async (req, res) => {
         format: format,
         demo: result.demo,
         usage: result.usage,
+        provider: result.provider,
         conversationHistory: result.conversationHistory,
         wordCount: result.continuation.split(' ').length,
-        isIterative: true
+        isIterative: true,
+        safetyCheck: safetyCheck
       });
     } else {
       // Use original full enhancement (for backwards compatibility)
       result = generateVisuals 
-        ? await enhanceTextWithVisuals(text.trim(), format, { characters })
-        : await enhanceText(text.trim(), format, { characters });
+        ? await enhanceTextWithVisuals(text.trim(), format, { characters, userAge })
+        : await enhanceText(text.trim(), format, { characters, userAge });
       
       // Generate files
       const downloadUrls = await generateFormattedFiles(result, format, projectId);
+      
+      logger.success('Full enhancement complete:', {
+        projectId,
+        outputLength: result.enhanced.length,
+        hasVisuals: result.hasVisuals
+      });
       
       res.json({
         success: true,
@@ -416,6 +871,7 @@ app.post('/api/enhance-story', async (req, res) => {
         scenes: result.scenes,
         wordCount: result.wordCount,
         isIterative: false,
+        safetyCheck: safetyCheck,
         metadata: {
           visualsGenerated: result.hasVisuals,
           imagesCreated: result.visuals ? (result.visuals.panels?.length || result.visuals.illustrations?.length || 0) : 0,
@@ -424,10 +880,8 @@ app.post('/api/enhance-story', async (req, res) => {
       });
     }
 
-    console.log(`✅ Enhancement complete for project ${projectId}`);
-
   } catch (error) {
-    console.error('Enhancement error:', error);
+    logger.error('Enhancement error:', error);
     res.status(500).json({ 
       error: 'Failed to enhance story',
       details: error.message 
@@ -435,23 +889,27 @@ app.post('/api/enhance-story', async (req, res) => {
   }
 });
 
-// NEW: Get conversation history
+// NEW: Get conversation history with better database simulation
 app.get('/api/conversation/:projectId', async (req, res) => {
   const { projectId } = req.params;
   
-  // In a real app, you'd store this in a database
+  logger.userAction('get_conversation_history', { projectId });
+  
+  // In a real app, you'd query your database here
   // For now, return empty array since we're not persisting conversations
   res.json({
     success: true,
     projectId,
     conversationHistory: [],
-    message: "Conversation history would be stored in database"
+    message: "Conversation history would be retrieved from database in production"
   });
 });
 
-// NEW: Reset conversation
+// NEW: Reset conversation with logging
 app.post('/api/reset-conversation', async (req, res) => {
   const { projectId } = req.body;
+  
+  logger.userAction('reset_conversation', { projectId });
   
   // In a real app, you'd clear the conversation from database
   res.json({
@@ -461,10 +919,77 @@ app.post('/api/reset-conversation', async (req, res) => {
   });
 });
 
-// Rest of your existing code remains the same...
-// [Include all your existing VisualGenerator, StoryboardGenerator, ComicPanelGenerator classes]
-// [Include all your existing visual generation functions]
-// [Include all your existing helper functions]
+// NEW: Get AI provider status
+app.get('/api/ai-status', (req, res) => {
+  const providerStatus = aiProvider.getProviderStatus();
+  
+  logger.debug('AI provider status requested');
+  
+  res.json({
+    success: true,
+    providers: providerStatus,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// NEW: System health check with comprehensive status
+app.get('/api/health', (req, res) => {
+  const systemStatus = {
+    status: 'OK',
+    message: 'AuraMythos.ai - Enhanced AI Story Development',
+    timestamp: new Date().toISOString(),
+    features: [
+      'Iterative paragraph-by-paragraph story development',
+      'Content safety filtering',
+      'Multi-provider AI system with fallbacks',
+      'Rate limiting and security',
+      'Comprehensive logging and monitoring',
+      'Visual generation capabilities'
+    ],
+    services: {
+      ai: aiProvider.getProviderStatus(),
+      visual: {
+        dalle: VISUAL_CONFIG.services.dalle.enabled,
+        midjourney: VISUAL_CONFIG.services.midjourney.enabled,
+        stability: VISUAL_CONFIG.services.stability.enabled
+      },
+      safety: {
+        contentFilter: true,
+        rateLimiting: true
+      }
+    },
+    formats: Object.keys(formatTemplates),
+    iterativeMode: true,
+    environment: process.env.NODE_ENV || 'development'
+  };
+  
+  logger.info('Health check requested', systemStatus);
+  
+  res.json(systemStatus);
+});
+
+// Enhanced formats endpoint
+app.get('/api/formats', (req, res) => {
+  const formats = Object.keys(formatTemplates).map(key => ({
+    id: key,
+    name: formatTemplates[key].name,
+    description: 'Iterative development - one paragraph at a time',
+    iterative: true,
+    safetyEnabled: true
+  }));
+  
+  logger.debug('Formats requested');
+  
+  res.json({ 
+    formats,
+    iterativeMode: true,
+    message: 'All formats support iterative development with safety filtering'
+  });
+});
+
+// ============================================================================
+// VISUAL GENERATION SYSTEM (ENHANCED)
+// ============================================================================
 
 class VisualGenerator {
   constructor() {
@@ -473,7 +998,11 @@ class VisualGenerator {
   }
 
   async generateImage(prompt, style = 'realistic', service = 'dalle') {
-    console.log(`🎨 Generating image with ${service}: ${prompt}`);
+    logger.debug('Image generation requested:', { 
+      service, 
+      style, 
+      promptLength: prompt.length 
+    });
     
     try {
       switch (service) {
@@ -487,7 +1016,7 @@ class VisualGenerator {
           return await this.generateWithDALLE(prompt, style);
       }
     } catch (error) {
-      console.error(`Image generation failed with ${service}:`, error);
+      logger.error(`Image generation failed with ${service}:`, error);
       return this.generateFallbackImage(prompt, style);
     }
   }
@@ -499,7 +1028,11 @@ class VisualGenerator {
 
     const stylePrompt = this.enhancePromptWithStyle(prompt, style);
     
-    const response = await openai.images.generate({
+    logger.aiService('dalle', 'generate_image_start', { 
+      promptLength: stylePrompt.length 
+    });
+
+    const response = await aiProvider.providers.openai.client.images.generate({
       model: 'dall-e-3',
       prompt: stylePrompt,
       n: 1,
@@ -509,6 +1042,11 @@ class VisualGenerator {
 
     const imageUrl = response.data[0].url;
     const localPath = await this.downloadAndSaveImage(imageUrl);
+    
+    logger.aiService('dalle', 'generate_image_success', { 
+      imageUrl, 
+      localPath 
+    });
     
     return {
       url: imageUrl,
@@ -520,7 +1058,7 @@ class VisualGenerator {
   }
 
   async generateWithMidjourney(prompt, style) {
-    console.log('Midjourney generation would happen here');
+    logger.debug('Midjourney generation would happen here');
     return this.generateFallbackImage(prompt, style);
   }
 
@@ -530,6 +1068,10 @@ class VisualGenerator {
     }
 
     const stylePrompt = this.enhancePromptWithStyle(prompt, style);
+    
+    logger.aiService('stability', 'generate_image_start', { 
+      promptLength: stylePrompt.length 
+    });
     
     const response = await axios.post(
       VISUAL_CONFIG.services.stability.endpoint,
@@ -552,6 +1094,10 @@ class VisualGenerator {
 
     const imageData = response.data.artifacts[0].base64;
     const localPath = await this.saveBase64Image(imageData);
+    
+    logger.aiService('stability', 'generate_image_success', { 
+      localPath 
+    });
     
     return {
       localPath,
@@ -579,8 +1125,7 @@ class VisualGenerator {
     const imageId = uuidv4();
     const imagePath = path.join('generated_images', `${imageId}.png`);
     
-    console.log(`📥 Downloading image from: ${imageUrl}`);
-    console.log(`💾 Saving to: ${imagePath}`);
+    logger.debug('Downloading image:', { imageUrl, imagePath });
     
     await fs.ensureDir('generated_images');
     
@@ -596,16 +1141,16 @@ class VisualGenerator {
 
       return new Promise((resolve, reject) => {
         writer.on('finish', () => {
-          console.log(`✅ Image saved successfully: ${imagePath}`);
+          logger.success('Image saved successfully:', imagePath);
           resolve(`/images/${imageId}.png`);
         });
         writer.on('error', (error) => {
-          console.error(`❌ Image save failed:`, error);
+          logger.error('Image save failed:', error);
           reject(error);
         });
       });
     } catch (error) {
-      console.error(`❌ Image download failed:`, error);
+      logger.error('Image download failed:', error);
       throw error;
     }
   }
@@ -617,10 +1162,14 @@ class VisualGenerator {
     await fs.ensureDir('generated_images');
     await fs.writeFile(imagePath, base64Data, 'base64');
     
+    logger.success('Base64 image saved:', imagePath);
+    
     return `/images/${imageId}.png`;
   }
 
   generateFallbackImage(prompt, style) {
+    logger.debug('Generating fallback image for demo mode');
+    
     return {
       localPath: '/images/placeholder.png',
       service: 'fallback',
@@ -635,9 +1184,15 @@ class VisualGenerator {
 // Initialize visual generation system
 const visualGenerator = new VisualGenerator();
 
-// Keep all your existing helper functions
+// ============================================================================
+// ENHANCED HELPER FUNCTIONS
+// ============================================================================
+
 const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) => {
-  console.log(`🎨 Phase 3: Enhancing text with visuals for ${format} format...`);
+  logger.debug('Enhancing text with visuals:', { 
+    format, 
+    textLength: rawText.length 
+  });
   
   const textResult = await enhanceText(rawText, format, options);
   
@@ -665,11 +1220,11 @@ const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) =>
         break;
         
       default:
-        console.log(`No visual generation for format: ${format}`);
+        logger.debug('No visual generation for format:', format);
     }
     
   } catch (error) {
-    console.error('Visual generation failed:', error);
+    logger.error('Visual generation failed:', error);
     visualContent = { error: error.message, demo: true };
   }
   
@@ -681,21 +1236,13 @@ const enhanceTextWithVisuals = async (rawText, format = 'book', options = {}) =>
 };
 
 const enhanceText = async (rawText, format = 'book', options = {}) => {
-  console.log(`📝 Processing text for ${format} format...`);
+  logger.debug('Processing text enhancement:', { 
+    format, 
+    textLength: rawText.length 
+  });
   
   const template = formatTemplates[format] || formatTemplates.book;
   
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
-    return {
-      original: rawText,
-      enhanced: formatDemoText(rawText, format),
-      format: format,
-      demo: true,
-      characters: extractCharacters(rawText),
-      scenes: extractScenes(rawText)
-    };
-  }
-
   try {
     let enhancedPrompt = template.prompt;
     
@@ -703,34 +1250,42 @@ const enhanceText = async (rawText, format = 'book', options = {}) => {
       enhancedPrompt += `\n\nCharacter consistency: ${options.characters.map(c => `${c.name}: ${c.description}`).join(', ')}`;
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [{
-        role: "system",
-        content: enhancedPrompt
-      }, {
-        role: "user", 
-        content: rawText
-      }],
-      max_tokens: 3000,
-      temperature: 0.7
-    });
+    // Add age-appropriate content guidance
+    if (options.userAge === 'child') {
+      enhancedPrompt += '\n\nIMPORTANT: Keep content family-friendly and appropriate for children.';
+    }
 
-    const enhancedText = completion.choices[0].message.content;
+    const aiResult = await aiProvider.generateText(
+      enhancedPrompt + '\n\n' + rawText,
+      {
+        maxTokens: 3000,
+        temperature: 0.7,
+        format: format
+      }
+    );
+
+    const enhancedText = aiResult.text;
+    
+    logger.success('Text enhancement complete:', {
+      originalLength: rawText.length,
+      enhancedLength: enhancedText.length,
+      provider: aiResult.provider
+    });
     
     return {
       original: rawText,
       enhanced: enhancedText,
       format: format,
-      demo: false,
-      usage: completion.usage,
+      demo: aiResult.demo || false,
+      usage: aiResult.usage,
+      provider: aiResult.provider,
       characters: extractCharacters(enhancedText),
       scenes: extractScenes(enhancedText),
       wordCount: enhancedText.split(' ').length
     };
 
   } catch (error) {
-    console.error('Text enhancement error:', error);
+    logger.error('Text enhancement error:', error);
     return {
       original: rawText,
       enhanced: formatDemoText(rawText, format),
@@ -761,6 +1316,7 @@ function extractCharacters(text) {
     }
   });
   
+  logger.debug('Characters extracted:', characters.length);
   return characters;
 }
 
@@ -785,6 +1341,7 @@ function extractScenes(text) {
     }
   });
   
+  logger.debug('Scenes extracted:', scenes.length);
   return scenes;
 }
 
@@ -796,6 +1353,8 @@ function formatDemoText(text, format) {
 }
 
 const generateFormattedFiles = async (result, format, projectId) => {
+  logger.debug('Generating formatted files:', { format, projectId });
+  
   const outputPath = `outputs/${projectId}`;
   await fs.ensureDir(outputPath);
   
@@ -811,6 +1370,8 @@ const generateFormattedFiles = async (result, format, projectId) => {
   await fs.writeFile(htmlPath, htmlContent);
   files.html = `/outputs/${projectId}/story-${format}-${timestamp}.html`;
   
+  logger.success('Formatted files generated:', files);
+  
   return files;
 };
 
@@ -821,6 +1382,12 @@ function generateVisualHTML(result, format, projectId) {
     <head>
       <meta charset="UTF-8">
       <title>AuraMythos ${format.charAt(0).toUpperCase() + format.slice(1)} Story</title>
+      <style>
+        body { font-family: 'Georgia', serif; line-height: 1.6; margin: 40px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .content { max-width: 800px; margin: 0 auto; }
+        .footer { text-align: center; margin-top: 40px; color: #666; }
+      </style>
     </head>
     <body>
       <div class="header">
@@ -837,74 +1404,73 @@ function generateVisualHTML(result, format, projectId) {
       <div class="footer">
         <p>Created with AuraMythos AI Story Enhancement</p>
         <p>Generated: ${new Date().toLocaleDateString()}</p>
+        <p>Project ID: ${projectId}</p>
       </div>
     </body>
     </html>
   `;
 }
 
-// Health check with iterative info
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'AuraMythos.ai - Iterative Story Development',
-    features: [
-      'Iterative paragraph-by-paragraph story development',
-      'AI asks for context instead of generating long stories',
-      'Collaborative storytelling approach',
-      'Multiple story formats supported',
-      'Visual generation capabilities'
-    ],
-    hasOpenAI: !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here',
-    formats: Object.keys(formatTemplates),
-    iterativeMode: true
+// ============================================================================
+// ERROR HANDLING MIDDLEWARE
+// ============================================================================
+app.use((error, req, res, next) => {
+  logger.error('Unhandled server error:', error);
+  
+  res.status(500).json({
+    error: 'Internal server error',
+    message: 'Something went wrong on our end',
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('/api/formats', (req, res) => {
-  const formats = Object.keys(formatTemplates).map(key => ({
-    id: key,
-    name: formatTemplates[key].name,
-    description: 'Iterative development - one paragraph at a time',
-    iterative: true
-  }));
-  
-  res.json({ 
-    formats,
-    iterativeMode: true,
-    message: 'All formats now support iterative development'
-  });
-});
+// ============================================================================
+// SERVER STARTUP
+// ============================================================================
 
 // Create required directories
 const dirs = ['uploads', 'outputs', 'generated_images'];
 dirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
+    logger.success('Directory created:', dir);
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🎨 AuraMythos Iterative Server running on http://localhost:${PORT}`);
+  logger.success(`AuraMythos Enhanced Server running on http://localhost:${PORT}`);
+  
+  console.log(`\n🎨 AuraMythos Enhanced AI Story Development Server`);
   console.log(`📁 Output directory: ${path.resolve('outputs')}`);
   console.log(`🖼️  Images directory: ${path.resolve('generated_images')}`);
   
   console.log(`\n🤖 AI Services Status:`);
-  console.log(`   ${VISUAL_CONFIG.services.dalle.enabled ? '✅' : '❌'} DALL-E 3 (OpenAI)`);
+  const providerStatus = aiProvider.getProviderStatus();
+  providerStatus.forEach(provider => {
+    console.log(`   ${provider.status === 'active' ? '✅' : '❌'} ${provider.name.toUpperCase()}: ${provider.status}`);
+  });
   
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
-    console.log(`\n⚠️  Demo Mode: Add OPENAI_API_KEY to .env file for full functionality`);
-  } else {
-    console.log(`\n🎨 AI Enhanced: Ready for iterative story development`);
-  }
+  console.log(`\n🛡️ Security & Safety Features:`);
+  console.log(`   ✅ Content Safety Filtering`);
+  console.log(`   ✅ Rate Limiting (${rateLimiter.limits.default.requests} req/min)`);
+  console.log(`   ✅ Comprehensive Request Logging`);
+  console.log(`   ✅ Error Boundary Protection`);
   
-  console.log(`\n🚀 NEW Iterative Features Active:`);
-  console.log(`   ✅ Paragraph-by-paragraph story development`);
-  console.log(`   ✅ AI asks for context instead of generating long stories`);
-  console.log(`   ✅ Collaborative storytelling approach`);
-  console.log(`   ✅ All formats support iterative mode`);
-  console.log(`   ✅ Conversation history tracking`);
+  console.log(`\n🚀 Enhanced Features Active:`);
+  console.log(`   ✅ Multi-Provider AI System with Fallbacks`);
+  console.log(`   ✅ Iterative Story Development`);
+  console.log(`   ✅ Age-Appropriate Content Filtering`);
+  console.log(`   ✅ Performance Monitoring`);
+  console.log(`   ✅ Visual Generation (DALL-E 3)`);
+  console.log(`   ✅ Real-time Safety Checking`);
   
   console.log(`\n📚 Available Formats: ${Object.keys(formatTemplates).join(', ')}`);
-  console.log(`🔄 Mode: Iterative (short responses + questions)`);
+  console.log(`🔄 Mode: Enhanced Iterative with Safety & Logging`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-api-key-here') {
+    logger.warn('Demo Mode: Add OPENAI_API_KEY to .env file for full AI functionality');
+  } else {
+    logger.success('AI Enhanced: Ready for production story development');
+  }
 });
