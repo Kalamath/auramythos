@@ -2005,7 +2005,7 @@ This was no ordinary day. This was the day everything would change.
                 margin: '0 0 8px 0',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
               }}>
-                Go from fuzzy thought to clear story. <em style={{ color: '#667eea' }}>Fast.</em>
+                Go from great idea to clear story. <em style={{ color: '#667eea' }}>Fast.</em>
               </p>
               
               <p style={{
@@ -2014,7 +2014,7 @@ This was no ordinary day. This was the day everything would change.
                 margin: 0,
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
               }}>
-                AuraMythos transforms voice notes into stories that are easy to read and ready to share.
+                AuraMythos is the #1 AI writing assistant in the world.
               </p>
             </div>
 
