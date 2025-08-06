@@ -72,6 +72,246 @@ const ErrorBoundary = ({ children }) => {
 };
 
 // ============================================================================
+// AUDIOPEN-STYLE CORNER NAVIGATION COMPONENT
+// ============================================================================
+const CornerNavigation = ({ 
+  onButtonClick, 
+  activeButton = null, 
+  isVisible = true, 
+  currentStep = 'landing' 
+}) => {
+  const cornerButtons = [
+    { 
+      id: 'back', 
+      icon: '←', 
+      position: 'topLeft',
+      label: 'Back',
+      action: 'goBack',
+      showOn: ['conversation', 'dashboard', 'stats'] // Added stats
+    },
+    { 
+      id: 'settings', 
+      icon: '⚙️', 
+      position: 'topRight',
+      label: 'Settings',
+      action: 'openSettings',
+      showOn: ['conversation', 'dashboard', 'auth', 'stats'] // Added stats
+    },
+    { 
+      id: 'upload', 
+      icon: '📁', 
+      position: 'bottomLeft',
+      label: 'Upload File',
+      action: 'uploadFile',
+      showOn: ['conversation', 'dashboard']
+    },
+    { 
+      id: 'stats', 
+      icon: '🏆', 
+      position: 'bottomRight',
+      label: 'Your Stats',
+      action: 'viewStats',
+      showOn: ['dashboard'] // Only show on dashboard
+    }
+  ];
+
+  const cornerButtonStyle = (position, isActive = false) => ({
+    position: 'fixed',
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    background: isActive 
+      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      : 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(20px)',
+    border: isActive 
+      ? 'none'
+      : '1px solid rgba(0, 0, 0, 0.08)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+    color: isActive ? 'white' : '#64748b',
+    transition: 'all 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+    zIndex: 200,
+    boxShadow: isActive 
+      ? '0 8px 24px rgba(102, 126, 234, 0.3)'
+      : '0 4px 12px rgba(0, 0, 0, 0.1)',
+    
+    // Position based on corner
+    ...(position === 'topLeft' && { top: '20px', left: '20px' }),
+    ...(position === 'topRight' && { top: '20px', right: '20px' }),
+    ...(position === 'bottomLeft' && { bottom: '20px', left: '20px' }),
+    ...(position === 'bottomRight' && { bottom: '20px', right: '20px' }),
+    
+    // Hide/show animation
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+    pointerEvents: isVisible ? 'auto' : 'none'
+  });
+
+  const handleButtonClick = (button, event) => {
+    event.stopPropagation();
+    logger.userAction('corner_button_clicked', { 
+      buttonId: button.id, 
+      action: button.action,
+      currentStep 
+    });
+    onButtonClick?.(button.id, button.action);
+  };
+
+  // Filter buttons based on current screen
+  const visibleButtons = cornerButtons.filter(button => 
+    button.showOn.includes(currentStep)
+  );
+
+  if (!isVisible || visibleButtons.length === 0) return null;
+
+  return (
+    <>
+      <style>
+        {`
+          .corner-button:hover {
+            transform: scale(1.1) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+          }
+          
+          .corner-button:active {
+            transform: scale(0.95) !important;
+          }
+          
+          .corner-button-topLeft:hover {
+            color: #64748b !important;
+            box-shadow: 0 6px 20px rgba(100, 116, 139, 0.2) !important;
+          }
+          
+          .corner-button-topLeft.active {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%) !important;
+          }
+          
+          .corner-button-bottomRight:hover {
+            color: #f59e0b !important;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.2) !important;
+          }
+          
+          .corner-button-bottomLeft:hover {
+            color: #f59e0b !important;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.2) !important;
+          }
+          
+          .corner-button-topRight:hover {
+            color: #8b5cf6 !important;
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.2) !important;
+          }
+        `}
+      </style>
+      
+      {visibleButtons.map((button) => {
+        const isActive = activeButton === button.id;
+        
+        return (
+          <button
+            key={button.id}
+            style={cornerButtonStyle(button.position, isActive)}
+            onClick={(e) => handleButtonClick(button, e)}
+            title={button.label}
+            className={`corner-button corner-button-${button.position} ${isActive ? 'active' : ''}`}
+          >
+            {button.icon}
+          </button>
+        );
+      })}
+    </>
+  );
+};
+
+// ============================================================================
+// BACKEND API INTEGRATION (Defined outside component to avoid reference issues)
+// ============================================================================
+const API_BASE = 'http://localhost:5001';
+
+// API functions to connect to your backend
+const apiClient = {
+  async enhanceStory(story, format, options = {}) {
+    try {
+      console.log('🌐 Calling backend API:', { story: story.substring(0, 50) + '...', format });
+      
+      const response = await fetch(`${API_BASE}/api/enhance-story`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          text: story,
+          format: format,
+          useIterative: true, // Use your iterative system
+          userAge: 'unknown',
+          generateVisuals: false, // Start without visuals for MVP
+          ...options
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Backend response received:', { 
+        success: result.success, 
+        enhanced: result.enhanced?.substring(0, 100) + '...' 
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Backend API call failed:', error);
+      // Fallback to your current mock system
+      return null;
+    }
+  },
+  
+  async continueStory(newInput, previousContext, format, conversationHistory = []) {
+    try {
+      console.log('🌐 Continuing story via backend...');
+      
+      const response = await fetch(`${API_BASE}/api/continue-story`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          text: newInput,
+          previousContext,
+          format,
+          conversationHistory,
+          userAge: 'unknown'
+        })
+      });
+      
+      const result = await response.json();
+      console.log('✅ Story continuation received');
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Story continuation failed:', error);
+      return null;
+    }
+  },
+  
+  async checkHealth() {
+    try {
+      const response = await fetch(`${API_BASE}/api/health`);
+      const result = await response.json();
+      console.log('💓 Backend health check:', result.status);
+      return result;
+    } catch (error) {
+      console.error('❌ Backend health check failed:', error);
+      return { status: 'offline', error: error.message };
+    }
+  }
+};
+
+// ============================================================================
 // MAIN APP COMPONENT
 // ============================================================================
 function App() {
@@ -89,7 +329,7 @@ function App() {
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
-  // Core app state - add title visibility
+  // Core app state - add title visibility and stats page
   const [appState, setAppState] = useState({
     currentStep: 'landing',
     currentStage: 'naming',
@@ -133,6 +373,212 @@ function App() {
     enhancementResult: null,
     awaitingApproval: false
   });
+  
+  // User authentication and story persistence
+  const [userState, setUserState] = useState({
+    isSignedIn: false,
+    user: null,
+    stories: [],
+    currentStoryId: null
+  });
+
+  // Backend connection state
+  const [backendState, setBackendState] = useState({
+    connected: false,
+    health: null,
+    lastCheck: null
+  });
+
+  // NEW: Corner navigation state
+  const [cornerNavState, setCornerNavState] = useState({
+    activeButton: null,
+    showCornerNav: true
+  });
+
+  // Load user data from localStorage on startup
+  useEffect(() => {
+    const savedUser = localStorage.getItem('auramythos_user');
+    const savedStories = localStorage.getItem('auramythos_stories');
+    
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      const stories = savedStories ? JSON.parse(savedStories) : [];
+      
+      setUserState({
+        isSignedIn: true,
+        user,
+        stories,
+        currentStoryId: null
+      });
+      
+      logger.success('User data loaded:', { 
+        userName: user.name, 
+        storiesCount: stories.length 
+      });
+    }
+  }, []);
+
+  // Save user data to localStorage
+  const saveUserData = (user, stories) => {
+    localStorage.setItem('auramythos_user', JSON.stringify(user));
+    localStorage.setItem('auramythos_stories', JSON.stringify(stories));
+    logger.debug('User data saved to localStorage');
+  };
+
+  // Create new user account
+  const createUserAccount = (name, email = null) => {
+    const newUser = {
+      id: Date.now(),
+      name,
+      email,
+      createdAt: new Date().toISOString(),
+      avatarColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'][Math.floor(Math.random() * 5)]
+    };
+    
+    setUserState({
+      isSignedIn: true,
+      user: newUser,
+      stories: [],
+      currentStoryId: null
+    });
+    
+    saveUserData(newUser, []);
+    logger.userAction('user_account_created', { name, email });
+    
+    return newUser;
+  };
+
+  // Save current story
+  const saveCurrentStory = () => {
+    if (!userState.isSignedIn || !userContent.title) return;
+    
+    const story = {
+      id: userState.currentStoryId || Date.now(),
+      title: userContent.title,
+      format: appState.selectedStyle,
+      content: userContent.story,
+      enhancedContent: enhancementState.enhancementResult?.enhanced || null,
+      createdAt: userState.currentStoryId 
+        ? userState.stories.find(s => s.id === userState.currentStoryId)?.createdAt || new Date().toISOString()
+        : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      wordCount: userContent.story.split(' ').length,
+      status: enhancementState.enhancementResult?.approved ? 'completed' : 'draft'
+    };
+    
+    const updatedStories = userState.currentStoryId 
+      ? userState.stories.map(s => s.id === userState.currentStoryId ? story : s)
+      : [...userState.stories, story];
+    
+    setUserState(prev => ({
+      ...prev,
+      stories: updatedStories,
+      currentStoryId: story.id
+    }));
+    
+    saveUserData(userState.user, updatedStories);
+    logger.userAction('story_saved', { 
+      storyId: story.id, 
+      title: story.title,
+      wordCount: story.wordCount 
+    });
+  };
+
+  // Load existing story
+  const loadStory = (storyId) => {
+    const story = userState.stories.find(s => s.id === storyId);
+    if (!story) return;
+    
+    updateUserContent({
+      title: story.title,
+      story: story.content
+    });
+    
+    updateAppState({
+      selectedStyle: story.format,
+      currentStep: 'conversation',
+      currentStage: 'storytelling',
+      showNotebook: true,
+      showTitle: true
+    });
+    
+    if (story.enhancedContent) {
+      updateEnhancementState({
+        enhancementResult: {
+          original: story.content,
+          enhanced: story.enhancedContent,
+          approved: story.status === 'completed'
+        }
+      });
+    }
+    
+    setUserState(prev => ({
+      ...prev,
+      currentStoryId: storyId
+    }));
+    
+    logger.userAction('story_loaded', { storyId, title: story.title });
+  };
+
+  // Sign out user
+  const signOut = () => {
+    localStorage.removeItem('auramythos_user');
+    localStorage.removeItem('auramythos_stories');
+    
+    setUserState({
+      isSignedIn: false,
+      user: null,
+      stories: [],
+      currentStoryId: null
+    });
+    
+    // Reset app to landing page
+    updateAppState({
+      currentStep: 'landing',
+      currentStage: 'naming',
+      selectedStyle: null,
+      showNotebook: false,
+      showTitle: false
+    });
+    
+    updateUserContent({
+      input: '',
+      name: '',
+      title: '',
+      story: ''
+    });
+    
+    updateConversationState({
+      messages: [],
+      currentTyping: '',
+      isTyping: false,
+      awaitingInput: false
+    });
+    
+    logger.userAction('user_signed_out');
+  };
+
+  // Check backend connection on startup (after all functions are defined)
+  useEffect(() => {
+    const checkBackend = async () => {
+      console.log('🔍 Checking backend connection...');
+      const health = await apiClient.checkHealth();
+      
+      setBackendState({
+        connected: health.status === 'OK',
+        health,
+        lastCheck: new Date().toISOString()
+      });
+      
+      if (health.status === 'OK') {
+        console.log('✅ Backend connected successfully!');
+      } else {
+        console.warn('⚠️ Backend offline, using demo mode');
+      }
+    };
+    
+    checkBackend();
+  }, []);
   
   // PNG Animation state - updated for 240 frames
   const [pngAnimationState, setPngAnimationState] = useState({
@@ -185,6 +631,116 @@ function App() {
   const updateEnhancementState = (updates) => {
     logger.debug('Enhancement state update:', updates);
     setEnhancementState(prev => ({ ...prev, ...updates }));
+  };
+
+  // NEW: Corner navigation handler
+  const handleCornerNavClick = (buttonId, action) => {
+    logger.userAction('corner_nav_interaction', { buttonId, action });
+    
+    // Update active button state
+    setCornerNavState(prev => ({
+      ...prev,
+      activeButton: prev.activeButton === buttonId ? null : buttonId
+    }));
+    
+    switch (action) {
+      case 'goBack':
+        handleGoBack();
+        break;
+        
+      case 'viewStats':
+        // Navigate to stats page
+        updateAppState({ currentStep: 'stats' });
+        logger.success('Navigated to stats page');
+        break;
+        
+      case 'uploadFile':
+        // Handle file upload
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.txt,.md,.doc,.docx';
+        fileInput.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            logger.userAction('file_upload_initiated', { 
+              filename: file.name, 
+              size: file.size 
+            });
+            // Add your file processing logic here
+          }
+        };
+        fileInput.click();
+        break;
+        
+      case 'openSettings':
+        // Handle settings
+        logger.info('Settings clicked - implement settings modal');
+        // You can add a settings modal here
+        break;
+        
+      default:
+        logger.warn('Unknown corner nav action:', action);
+    }
+  };
+
+  // NEW: Smart back navigation function
+  const handleGoBack = () => {
+    logger.userAction('back_button_clicked', { 
+      currentStep: appState.currentStep,
+      currentStage: appState.currentStage,
+      isSignedIn: userState.isSignedIn
+    });
+
+    if (appState.currentStep === 'conversation') {
+      // Save current story progress if user is signed in
+      if (userState.isSignedIn && (userContent.title || userContent.story)) {
+        saveCurrentStory();
+        logger.success('Story progress saved before going back');
+      }
+      
+      // Determine where to go back to based on user state
+      if (userState.isSignedIn) {
+        // Signed in users go back to dashboard
+        updateAppState({ 
+          currentStep: 'dashboard',
+          isTransitioning: false 
+        });
+        logger.debug('Navigating back to dashboard');
+      } else {
+        // Non-signed in users go back to auth screen
+        updateAppState({ 
+          currentStep: 'auth',
+          isTransitioning: false 
+        });
+        logger.debug('Navigating back to auth screen');
+      }
+      
+      // Clear conversation state
+      updateConversationState({
+        messages: [],
+        currentTyping: '',
+        isTyping: false,
+        awaitingInput: false
+      });
+      
+      // Reset enhancement state
+      updateEnhancementState({
+        isEnhancing: false,
+        showMagicalLoading: false,
+        enhancementResult: null,
+        awaitingApproval: false
+      });
+      
+    } else if (appState.currentStep === 'stats') {
+      // From stats, go back to dashboard
+      updateAppState({ currentStep: 'dashboard' });
+      logger.debug('Navigating back to dashboard from stats');
+      
+    } else if (appState.currentStep === 'dashboard') {
+      // From dashboard, go back to landing page
+      signOut(); // This already handles going back to landing
+      logger.debug('Navigating back to landing page');
+    }
   };
 
   // Message queue for typing animation - More welcoming intro
@@ -302,30 +858,59 @@ function App() {
     processMessageQueue();
   };
 
+  // Enhanced Let's Begin - check for returning users
   const handleLetsBegin = () => {
-    logger.userAction('lets_begin_clicked');
-    updateAppState({ isTransitioning: true });
+    logger.userAction('lets_begin_clicked', { 
+      isReturningUser: userState.isSignedIn,
+      storiesCount: userState.stories.length 
+    });
     
-    setTimeout(() => {
+    if (userState.isSignedIn && userState.stories.length > 0) {
+      // Show dashboard for returning users
       updateAppState({ 
-        currentStep: 'conversation',
-        showNotebook: false
+        currentStep: 'dashboard',
+        isTransitioning: false 
       });
+    } else if (userState.isSignedIn) {
+      // Signed in user with no stories - go straight to story creation
+      updateAppState({ isTransitioning: true });
       
       setTimeout(() => {
-        refs.messageQueue.current = [...conversationIntro];
-        processMessageQueue();
+        updateAppState({ 
+          currentStep: 'conversation',
+          showNotebook: false
+        });
         
         setTimeout(() => {
-          updateAppState({ showNotebook: true });
+          // Use saved name for returning users
+          updateUserContent({ name: userState.user.name });
+          
+          refs.messageQueue.current = [
+            { text: `Welcome back, ${userState.user.name}! ✨`, delay: 500 },
+            { text: "Ready to create your next story?", delay: 800 },
+            { text: "Let's give your story a title. What would you like to call it?", delay: 1000 },
+            { type: 'input', placeholder: isMobile ? "Tap the microphone to say your title..." : "Type your story title...", delay: 1000 }
+          ];
+          processMessageQueue();
+          
+          updateAppState({ 
+            currentStage: 'story_type_selection',
+            showNotebook: true
+          });
           
           setTimeout(() => {
             updateAppState({ isTransitioning: false });
-            logger.success('Transition to conversation complete');
+            logger.success('Returning user transition complete');
           }, 500);
         }, 200);
       }, 800);
-    }, 1000);
+    } else {
+      // New user - show sign up/sign in options
+      updateAppState({ 
+        currentStep: 'auth',
+        isTransitioning: false 
+      });
+    }
   };
 
   const typeMessage = async (text, callback) => {
@@ -653,13 +1238,14 @@ function App() {
   };
 
   // ============================================================================
-  // ENHANCE STORY FUNCTION WITH MAGICAL LOADING
+  // ENHANCED STORY FUNCTION WITH REAL BACKEND INTEGRATION
   // ============================================================================
   const enhanceStory = async () => {
     logger.userAction('enhance_story_start', {
       originalLength: userContent.story.length,
       originalWordCount: userContent.story.split(' ').length,
-      format: appState.selectedStyle
+      format: appState.selectedStyle,
+      backendConnected: backendState.connected
     });
 
     // Start the enhancement process
@@ -676,6 +1262,46 @@ function App() {
     
     addMagicalLoading();
     
+    let enhancedStory;
+    let isDemo = false;
+    
+    try {
+      if (backendState.connected) {
+        // Use real backend API
+        console.log('🤖 Using real AI backend for enhancement...');
+        
+        const result = await apiClient.enhanceStory(
+          userContent.story, 
+          appState.selectedStyle,
+          {
+            previousContext: '',
+            conversationHistory: []
+          }
+        );
+        
+        if (result && result.success) {
+          enhancedStory = result.enhanced || result.continuation;
+          isDemo = result.demo || false;
+          
+          console.log('✅ Real AI enhancement completed:', {
+            provider: result.provider,
+            outputLength: enhancedStory.length,
+            demo: isDemo
+          });
+        } else {
+          throw new Error('Backend returned unsuccessful result');
+        }
+      } else {
+        throw new Error('Backend not connected');
+      }
+    } catch (error) {
+      console.warn('⚠️ Backend failed, using fallback enhancement:', error.message);
+      
+      // Fallback to your original enhancement system
+      enhancedStory = generateEnhancedStory(userContent.story, appState.selectedStyle);
+      isDemo = true;
+    }
+    
     // Wait for magical loading (15 seconds for dramatic effect)
     await new Promise(resolve => setTimeout(resolve, 15000));
     
@@ -685,15 +1311,13 @@ function App() {
       messages: prev.messages.filter(msg => msg.type !== 'magical_loading')
     }));
     
-    // Generate enhanced story
-    const enhancedStory = generateEnhancedStory(userContent.story, appState.selectedStyle);
-    
     // Store the enhancement result
     updateEnhancementState({ 
       enhancementResult: {
         original: userContent.story,
         enhanced: enhancedStory,
-        approved: false
+        approved: false,
+        isDemo
       },
       awaitingApproval: true,
       isEnhancing: false,
@@ -704,19 +1328,25 @@ function App() {
       enhancedLength: enhancedStory.length,
       enhancedWordCount: enhancedStory.split(' ').length,
       improvement: `${enhancedStory.split(' ').length - userContent.story.split(' ').length} words added`,
-      format: appState.selectedStyle
+      format: appState.selectedStyle,
+      backendUsed: backendState.connected && !isDemo,
+      isDemo
     });
     
     // Add enhanced result with approval system (appears instantly)
     addEnhancementResult(enhancedStory);
     
-    // Aura asks for approval
+    // Aura asks for approval with backend status
+    const approvalMessage = backendState.connected && !isDemo 
+      ? `✨ How does this AI-enhanced version look, ${userContent.name || 'my friend'}?`
+      : `✨ How does this enhanced version look, ${userContent.name || 'my friend'}? ${isDemo ? '(Demo mode)' : ''}`;
+    
     queueMessages([
-      { text: "✨ How does this enhanced version look, " + (userContent.name || 'my friend') + "?", delay: 1000 }
+      { text: approvalMessage, delay: 1000 }
     ]);
   };
 
-  // NEW: Handle approval/denial of enhancement
+  // NEW: Handle approval/denial of enhancement with export functionality
   const handleEnhancementApproval = (approved) => {
     logger.userAction('enhancement_approval', { approved });
     
@@ -729,9 +1359,12 @@ function App() {
         }
       });
       
+      // Add export buttons after approval
       queueMessages([
-        { text: "🎉 Wonderful! Your enhanced story has been saved and is ready for download.", delay: 800 },
-        { text: "In the full version, you'd be able to export as PDF, continue editing, or share your creation!", delay: 1000 },
+        { text: "🎉 Wonderful! Your enhanced story is ready!", delay: 800 },
+        { text: backendState.connected 
+          ? "Your story was enhanced with real AI! You can now export it or continue writing." 
+          : "In the full version, you'd get even better AI enhancements and export options!", delay: 1000 },
         { text: "Thank you for using AuraMythos! ✨", delay: 800 }
       ]);
     } else {
@@ -750,6 +1383,29 @@ function App() {
       ]);
       
       updateAppState({ currentStage: 'choice' });
+    }
+  };
+
+  // NEW: Export functionality
+  const exportStory = (format = 'txt') => {
+    const story = enhancementState.enhancementResult?.enhanced || userContent.story;
+    const title = userContent.title || 'My Story';
+    
+    logger.userAction('export_story', { format, length: story.length });
+    
+    if (format === 'txt') {
+      const content = `${title}\nCreated with AuraMythos.ai\n\n${story}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'copy') {
+      navigator.clipboard.writeText(story).then(() => {
+        console.log('📋 Story copied to clipboard');
+      });
     }
   };
 
@@ -778,6 +1434,14 @@ This was no ordinary day. This was the day everything would change.
 
   return (
     <ErrorBoundary>
+      {/* AUDIOPEN-STYLE CORNER NAVIGATION - MOVED OUTSIDE ALL CONTAINERS */}
+      <CornerNavigation 
+        onButtonClick={handleCornerNavClick}
+        activeButton={cornerNavState.activeButton}
+        isVisible={cornerNavState.showCornerNav && appState.currentStep !== 'landing'}
+        currentStep={appState.currentStep}
+      />
+
       <div style={{
         minHeight: '100vh',
         background: appState.currentStep === 'landing' 
@@ -808,6 +1472,8 @@ This was no ordinary day. This was the day everything would change.
           pointerEvents: 'none',
           visibility: appState.isTransitioning || appState.currentStep === 'landing' ? 'visible' : 'hidden'
         }} />
+
+        {/* AUDIOPEN-STYLE CORNER NAVIGATION - REMOVED FROM HERE */}
         
         <style>
           {`
@@ -1204,6 +1870,25 @@ This was no ordinary day. This was the day everything would change.
             pointerEvents: appState.isTransitioning ? 'none' : 'auto',
             zIndex: 2,
           }}>
+            {/* Backend Status Indicator */}
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              padding: '8px 12px',
+              background: backendState.connected 
+                ? 'rgba(34, 197, 94, 0.2)' 
+                : 'rgba(239, 68, 68, 0.2)',
+              borderRadius: '20px',
+              border: `1px solid ${backendState.connected ? '#22c55e' : '#ef4444'}`,
+              fontSize: '12px',
+              fontWeight: '600',
+              color: backendState.connected ? '#16a34a' : '#dc2626',
+              backdropFilter: 'blur(10px)'
+            }}>
+              {backendState.connected ? '🤖 AI Ready' : '⚠️ Demo Mode'}
+            </div>
+            
             {/* Floating particles (Desktop only) - RESTORED! */}
             {!isMobile && (
               <div style={{
@@ -1286,6 +1971,1096 @@ This was no ordinary day. This was the day everything would change.
             >
               Let's Begin
             </button>
+          </div>
+        )}
+
+        {/* AUTH SCREEN - AudioPen-Inspired Welcome */}
+        {appState.currentStep === 'auth' && (
+          <div style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+            padding: '40px 20px',
+            paddingTop: '80px' // Space for corner buttons
+          }}>
+            {/* Header */}
+            <div style={{
+              textAlign: 'center',
+              marginBottom: '48px',
+              maxWidth: '600px',
+              margin: '0 auto 48px'
+            }}>
+              <h1 style={{
+                fontSize: isMobile ? '2.5rem' : '3.5rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                margin: '0 0 16px 0',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                AuraMythos
+              </h1>
+              
+              <p style={{
+                fontSize: isMobile ? '1.1rem' : '1.3rem',
+                color: '#64748b',
+                margin: '0 0 8px 0',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                Go from fuzzy thought to clear story. <em style={{ color: '#667eea' }}>Fast.</em>
+              </p>
+              
+              <p style={{
+                fontSize: '16px',
+                color: '#94a3b8',
+                margin: 0,
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                AuraMythos transforms voice notes into stories that are easy to read and ready to share.
+              </p>
+            </div>
+
+            {/* Sample Story Cards - AudioPen Style */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '16px',
+              maxWidth: '1200px',
+              margin: '0 auto 48px',
+              opacity: 0.7
+            }}>
+              {/* Sample Card 1 */}
+              <div style={{
+                background: '#fefefe',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px', // Square corners like AudioPen
+                padding: '20px',
+                minHeight: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: '12px'
+                }}>
+                  <h3 style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#1e293b',
+                    margin: 0,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    The Dragon's Last Song
+                  </h3>
+                  <span style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    you
+                  </span>
+                </div>
+                
+                <p style={{
+                  fontSize: '14px',
+                  color: '#64748b',
+                  lineHeight: '1.5',
+                  margin: '0 0 auto 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  In the misty mountains where ancient magic still flows, a dragon prepares for her final flight...
+                </p>
+                
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  marginTop: '12px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Aug 1, 2025
+                </div>
+              </div>
+
+              {/* Sample Card 2 */}
+              <div style={{
+                background: '#fefefe',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                padding: '20px',
+                minHeight: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: '12px'
+                }}>
+                  <h3 style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#1e293b',
+                    margin: 0,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Coffee Shop Chronicles
+                  </h3>
+                  <span style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    you
+                  </span>
+                </div>
+                
+                <p style={{
+                  fontSize: '14px',
+                  color: '#64748b',
+                  lineHeight: '1.5',
+                  margin: '0 0 auto 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Every morning at 7:43 AM, she orders the same thing. Today, something different happens...
+                </p>
+                
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  marginTop: '12px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Jul 28, 2025
+                </div>
+              </div>
+
+              {/* Sample Card 3 */}
+              <div style={{
+                background: '#fefefe',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                padding: '20px',
+                minHeight: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: '12px'
+                }}>
+                  <h3 style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#1e293b',
+                    margin: 0,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Building Tomorrow
+                  </h3>
+                  <span style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    you
+                  </span>
+                </div>
+                
+                <p style={{
+                  fontSize: '14px',
+                  color: '#64748b',
+                  lineHeight: '1.5',
+                  margin: '0 0 auto 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  A young architect discovers blueprints for a building that changes the laws of physics...
+                </p>
+                
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  marginTop: '12px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Jul 25, 2025
+                </div>
+              </div>
+
+              {/* Sample Card 4 - Only on desktop */}
+              {!isMobile && (
+                <div style={{
+                  background: '#fefefe',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '4px',
+                  padding: '20px',
+                  minHeight: '140px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '12px'
+                  }}>
+                    <h3 style={{
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      margin: 0,
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    }}>
+                      Midnight Express
+                    </h3>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#94a3b8',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    }}>
+                      you
+                    </span>
+                  </div>
+                  
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#64748b',
+                    lineHeight: '1.5',
+                    margin: '0 0 auto 0',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    The last train out of the city carries more than passengers tonight...
+                  </p>
+                  
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    marginTop: '12px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Jul 22, 2025
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sign Up Section - Simplified */}
+            <div style={{
+              maxWidth: '400px',
+              margin: '0 auto',
+              textAlign: 'center'
+            }}>
+              <input
+                type="text"
+                placeholder="Enter your name..."
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  background: '#fafbfc',
+                  color: '#1e293b',
+                  outline: 'none',
+                  transition: 'all 0.2s ease',
+                  boxSizing: 'border-box',
+                  marginBottom: '16px'
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    const user = createUserAccount(e.target.value.trim());
+                    setTimeout(() => {
+                      updateAppState({ currentStep: 'dashboard' });
+                    }, 300);
+                  }
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#667eea';
+                  e.target.style.background = '#ffffff';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.background = '#fafbfc';
+                }}
+              />
+
+              <button
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  background: '#1e293b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  marginBottom: '24px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#0f172a';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#1e293b';
+                }}
+                onClick={(e) => {
+                  const input = e.target.parentElement.querySelector('input');
+                  if (input && input.value.trim()) {
+                    const user = createUserAccount(input.value.trim());
+                    setTimeout(() => {
+                      updateAppState({ currentStep: 'dashboard' });
+                    }, 300);
+                  }
+                }}
+              >
+                Get started
+              </button>
+
+              <p style={{
+                fontSize: '12px',
+                color: '#94a3b8',
+                margin: 0,
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                Stories saved locally in your browser. Perfect for trying out AuraMythos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* STATS PAGE - New Dedicated Stats Screen */}
+        {appState.currentStep === 'stats' && (
+          <div style={{
+            minHeight: '100vh',
+            width: '100%',
+            background: '#f1f5f9',
+            padding: '40px 20px',
+            paddingTop: '80px',
+            overflowY: 'auto'
+          }}>
+            {/* Header */}
+            <div style={{
+              maxWidth: '800px',
+              margin: '0 auto 40px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '40px',
+                margin: '0 auto 24px',
+                boxShadow: '0 8px 24px rgba(245, 158, 11, 0.3)'
+              }}>
+                🏆
+              </div>
+              
+              <h1 style={{
+                fontSize: '2.5rem',
+                fontWeight: '700',
+                color: '#1e293b',
+                margin: '0 0 8px 0',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                Your Writing Journey
+              </h1>
+              
+              <p style={{
+                fontSize: '1.1rem',
+                color: '#64748b',
+                margin: '0 0 16px 0',
+                fontStyle: 'italic',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                Track your progress and celebrate your achievements
+              </p>
+
+              <p style={{
+                fontSize: '14px',
+                color: '#94a3b8',
+                margin: 0,
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                Member since {userState.user ? new Date(userState.user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Recently'}
+              </p>
+            </div>
+
+            {/* Main Stats Grid */}
+            <div style={{
+              maxWidth: '800px',
+              margin: '0 auto 40px',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+              gap: '24px'
+            }}>
+              {/* Stories Created */}
+              <div style={{
+                background: 'white',
+                padding: '40px 32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  fontSize: '20px'
+                }}>
+                  📚
+                </div>
+                
+                <div style={{ 
+                  fontSize: '3.5rem', 
+                  fontWeight: '800', 
+                  color: '#667eea',
+                  margin: '0 0 12px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  {userState.stories.length}
+                </div>
+                
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 8px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Stories Created
+                </h3>
+                
+                <p style={{ 
+                  color: '#64748b',
+                  fontSize: '14px',
+                  margin: 0,
+                  fontStyle: 'italic',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Every story starts with a single idea
+                </p>
+              </div>
+              
+              {/* Words Written */}
+              <div style={{
+                background: 'white',
+                padding: '40px 32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  fontSize: '20px'
+                }}>
+                  ✍️
+                </div>
+                
+                <div style={{ 
+                  fontSize: '3.5rem', 
+                  fontWeight: '800', 
+                  color: '#10b981',
+                  margin: '0 0 12px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  {userState.stories.reduce((total, story) => total + story.wordCount, 0).toLocaleString()}
+                </div>
+                
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 8px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Words Written
+                </h3>
+                
+                <p style={{ 
+                  color: '#64748b',
+                  fontSize: '14px',
+                  margin: 0,
+                  fontStyle: 'italic',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  The building blocks of great stories
+                </p>
+              </div>
+              
+              {/* Enhanced Stories */}
+              <div style={{
+                background: 'white',
+                padding: '40px 32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  fontSize: '20px'
+                }}>
+                  ✨
+                </div>
+                
+                <div style={{ 
+                  fontSize: '3.5rem', 
+                  fontWeight: '800', 
+                  color: '#8b5cf6',
+                  margin: '0 0 12px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  {userState.stories.filter(s => s.status === 'completed').length}
+                </div>
+                
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 8px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Enhanced Stories
+                </h3>
+                
+                <p style={{ 
+                  color: '#64748b',
+                  fontSize: '14px',
+                  margin: 0,
+                  fontStyle: 'italic',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Transformed with AI magic
+                </p>
+              </div>
+            </div>
+
+            {/* Additional Stats */}
+            <div style={{
+              maxWidth: '800px',
+              margin: '0 auto',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+              gap: '24px'
+            }}>
+              {/* Average Words per Story */}
+              <div style={{
+                background: 'white',
+                padding: '32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 16px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  📊 Writing Insights
+                </h3>
+                
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px'
+                }}>
+                  <span style={{
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Average words per story
+                  </span>
+                  <span style={{
+                    color: '#1e293b',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    {userState.stories.length > 0 
+                      ? Math.round(userState.stories.reduce((total, story) => total + story.wordCount, 0) / userState.stories.length)
+                      : 0
+                    }
+                  </span>
+                </div>
+                
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Completion rate
+                  </span>
+                  <span style={{
+                    color: '#1e293b',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    {userState.stories.length > 0 
+                      ? Math.round((userState.stories.filter(s => s.status === 'completed').length / userState.stories.length) * 100)
+                      : 0
+                    }%
+                  </span>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div style={{
+                background: 'white',
+                padding: '32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 16px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  🕐 Recent Activity
+                </h3>
+                
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px'
+                }}>
+                  <span style={{
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Last story created
+                  </span>
+                  <span style={{
+                    color: '#1e293b',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    {userState.stories.length > 0 
+                      ? new Date(Math.max(...userState.stories.map(s => new Date(s.createdAt)))).toLocaleDateString()
+                      : 'None yet'
+                    }
+                  </span>
+                </div>
+                
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    Most productive day
+                  </span>
+                  <span style={{
+                    color: '#1e293b',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    {userState.stories.length > 0 ? 'Today' : 'Start writing!'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Call to Action */}
+            {userState.stories.length === 0 && (
+              <div style={{
+                maxWidth: '400px',
+                margin: '40px auto 0',
+                textAlign: 'center',
+                background: 'white',
+                padding: '40px 32px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🚀</div>
+                <h3 style={{
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: '0 0 8px 0',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Ready to start your journey?
+                </h3>
+                <p style={{
+                  color: '#64748b',
+                  margin: '0 0 24px 0',
+                  fontSize: '14px',
+                  fontStyle: 'italic',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Your first story is just a conversation away
+                </p>
+                <button
+                  onClick={() => {
+                    updateAppState({ currentStep: 'dashboard' });
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DASHBOARD SCREEN - Clean Design */}
+        {appState.currentStep === 'dashboard' && (
+          <div style={{
+            minHeight: '100vh',
+            width: '100%',
+            background: '#f1f5f9', // Light gray background like the image
+            padding: '40px 20px',
+            paddingTop: '80px',
+            overflowY: 'auto'
+          }}>
+            {/* Header with avatar and welcome message */}
+            <div style={{
+              maxWidth: '1200px',
+              margin: '0 auto 40px'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '40px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: userState.user?.avatarColor || '#667eea',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}>
+                    {userState.user?.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h1 style={{
+                      fontSize: '1.8rem',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      margin: '0 0 4px 0',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    }}>
+                      Welcome back, {userState.user?.name}! 👋
+                    </h1>
+                    <p style={{ 
+                      color: '#64748b', 
+                      margin: 0,
+                      fontSize: '16px',
+                      fontStyle: 'italic',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    }}>
+                      Ready to continue your storytelling journey?
+                    </p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={signOut}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+            
+            {/* Stories Section */}
+            <div style={{
+              maxWidth: '1200px',
+              margin: '0 auto'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '24px'
+              }}>
+                <h2 style={{
+                  fontSize: '1.5rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  margin: 0,
+                  fontStyle: 'italic',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                }}>
+                  Your Stories
+                </h2>
+                
+                <button
+                  onClick={() => {
+                    updateAppState({ 
+                      currentStep: 'conversation',
+                      currentStage: 'story_type_selection',
+                      showNotebook: false
+                    });
+                    
+                    setTimeout(() => {
+                      refs.messageQueue.current = [
+                        { text: "Let's create a new story! What would you like to call it?", delay: 500 },
+                        { type: 'input', placeholder: isMobile ? "Tap the microphone to say your title..." : "Type your story title...", delay: 800 }
+                      ];
+                      processMessageQueue();
+                      updateAppState({ showNotebook: true });
+                    }, 500);
+                  }}
+                  style={{
+                    padding: '12px 20px',
+                    background: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#5a67d8'}
+                  onMouseLeave={(e) => e.target.style.background = '#667eea'}
+                >
+                  + New Story
+                </button>
+              </div>
+
+              {/* 3 Rows of Faint Background Cards - AudioPen Style */}
+              <div style={{
+                position: 'relative',
+                minHeight: '500px'
+              }}>
+                {/* Background gradient cards - 3 rows */}
+                {[...Array(3)].map((_, rowIndex) => (
+                  <div key={`row-${rowIndex}`} style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '16px',
+                    marginBottom: '16px',
+                    opacity: 0.25 - (rowIndex * 0.03) // Made 10% more visible (was 0.15)
+                  }}>
+                    {[...Array(isMobile ? 1 : 4)].map((_, cardIndex) => (
+                      <div key={`card-${rowIndex}-${cardIndex}`} style={{
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.3) 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                        borderRadius: '12px',
+                        minHeight: '140px',
+                        backdropFilter: 'blur(10px)',
+                        pointerEvents: 'none'
+                      }} />
+                    ))}
+                  </div>
+                ))}
+
+                {/* Actual Story Cards (on top of background cards) - Notecard Style */}
+                {userState.stories.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '24px' // Increased gap for tilted cards
+                  }}>
+                    {userState.stories.map((story, index) => {
+                      // Different rotation angles for each card
+                      const rotations = ['-2deg', '1deg', '-1deg', '2deg', '-1.5deg', '1.5deg'];
+                      const rotation = rotations[index % rotations.length];
+                      
+                      return (
+                        <div
+                          key={story.id}
+                          style={{
+                            position: 'relative',
+                            transform: `rotate(${rotation})`,
+                            transformOrigin: 'center center'
+                          }}
+                        >
+                          {/* Red Pin */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '12px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            background: 'radial-gradient(circle, #dc2626 0%, #991b1b 100%)',
+                            borderRadius: '50%',
+                            zIndex: 10,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3)',
+                            border: '1px solid #7f1d1d'
+                          }} />
+                          
+                          {/* Pin Shadow */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '16px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '8px',
+                            height: '8px',
+                            background: 'rgba(0,0,0,0.1)',
+                            borderRadius: '50%',
+                            zIndex: 1
+                          }} />
+                          
+                          {/* Notecard */}
+                          <div
+                            style={{
+                              background: `
+                                linear-gradient(to right, #ffb3ba 0px, #ffb3ba 2px, transparent 2px),
+                                repeating-linear-gradient(
+                                  transparent,
+                                  transparent 23px,
+                                  #e0e7ff 23px,
+                                  #e0e7ff 24px
+                                ),
+                                #fefefe
+                              `,
+                              backgroundSize: '100% 100%, 100% 100%, 100% 100%',
+                              padding: '32px 24px 24px 32px', // Extra top padding for pin
+                              borderRadius: '8px',
+                              border: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              minHeight: '160px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                              position: 'relative',
+                              fontFamily: "'Special Elite', 'Courier New', monospace" // Handwritten font
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.transform = 'translateY(-4px) scale(1.02)';
+                              e.target.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.transform = 'translateY(0) scale(1)';
+                              e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                            }}
+                            onClick={() => loadStory(story.id)}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              marginBottom: '12px'
+                            }}>
+                              <h3 style={{
+                                fontSize: '18px',
+                                fontWeight: '600',
+                                color: '#1e293b',
+                                margin: 0,
+                                lineHeight: '1.3',
+                                fontFamily: "'Special Elite', 'Courier New', monospace"
+                              }}>
+                                {story.title}
+                              </h3>
+                              <span style={{
+                                fontSize: '12px',
+                                color: '#6b7280',
+                                fontFamily: "'Special Elite', 'Courier New', monospace"
+                              }}>
+                                you
+                              </span>
+                            </div>
+                            
+                            <p style={{
+                              color: '#4b5563',
+                              fontSize: '14px',
+                              lineHeight: '24px', // Match line spacing
+                              margin: '0 0 auto 0',
+                              fontFamily: "'Special Elite', 'Courier New', monospace"
+                            }}>
+                              {story.content.substring(0, 100)}...
+                            </p>
+                            
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginTop: '16px',
+                              fontSize: '11px',
+                              color: '#6b7280',
+                              fontFamily: "'Special Elite', 'Courier New', monospace"
+                            }}>
+                              <span>{story.format.charAt(0).toUpperCase() + story.format.slice(1)}</span>
+                              <span>{new Date(story.updatedAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1533,6 +3308,26 @@ This was no ordinary day. This was the day everything would change.
                               onClick={() => handleEnhancementApproval(false)}
                             >
                               ❌ Deny
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Export buttons after approval */}
+                      {enhancementState.enhancementResult?.approved && (
+                        <div style={{ marginTop: '16px' }}>
+                          <div className="approval-buttons">
+                            <button 
+                              className="approval-btn approve" 
+                              onClick={() => exportStory('txt')}
+                            >
+                              📄 Download
+                            </button>
+                            <button 
+                              className="approval-btn approve" 
+                              onClick={() => exportStory('copy')}
+                            >
+                              📋 Copy
                             </button>
                           </div>
                         </div>
