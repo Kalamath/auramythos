@@ -1329,9 +1329,7 @@ This was no ordinary day. This was the day everything would change.
               lineHeight: '1.2',
               maxWidth: '900px'
             }}>
-              Your personal writing assistant.
-              <br />
-              Transforming your ideas like{' '}
+              Creating stories should feel just like {' '}
               <span style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 backgroundClip: 'text',
@@ -1349,7 +1347,7 @@ This was no ordinary day. This was the day everything would change.
               margin: '0 0 40px 0',
               maxWidth: '600px'
             }}>
-              AuraMythos transforms your ideas into structured, perfectly crafted stories.
+              Let your writing journey being with AuraMythos. Your personal writing assistant.
             </p>
 
             <div style={{
@@ -1688,7 +1686,7 @@ This was no ordinary day. This was the day everything would change.
                         fontSize: '16px',
                         fontStyle: 'italic'
                       }}>
-                        Ready to continue your storytelling journey?
+                        Let's continue your storytelling journey.
                       </p>
                     </div>
                   </div>
