@@ -173,7 +173,7 @@ const CornerNavigation = ({
       position: 'topLeft',
       label: 'Back',
       action: 'goBack',
-      showOn: ['app', 'conversation', 'dashboard', 'stats', 'auth']
+      showOn: ['app', 'conversation', 'dashboard', 'stats', 'auth', 'welcome']
     },
     { 
       id: 'login', 
@@ -639,6 +639,395 @@ function TestimonialsSection({ isMobile }) {
 }
 
 // ============================================================================
+// WELCOME BACK PAGE COMPONENT
+// Place this AFTER your imports and BEFORE your main App function
+// ============================================================================
+
+const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeCornerButton }) => {
+  const [recentStories, setRecentStories] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
+
+  // Simulated data - replace with actual API call
+  useEffect(() => {
+    // Create placeholder cards (empty state)
+    setRecentStories([1, 2, 3, 4, 5, 6]); // Just placeholders
+    
+    // Uncomment to test with actual stories
+    // setRecentStories([
+    //   { id: 1, title: "The Last Sunset", format: "screenplay", preview: "A lone astronaut discovers...", date: "2 hours ago" },
+    //   { id: 2, title: "Whispers in Tokyo", format: "manga", preview: "In the neon-lit streets...", date: "Yesterday" },
+    //   { id: 3, title: "The Algorithm's Dream", format: "story", preview: "When the AI began to dream...", date: "3 days ago" }
+    // ]);
+  }, []);
+
+  // Corner button style
+  const cornerButtonStyle = (position, isActive = false) => ({
+    position: 'fixed',
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    background: isActive 
+      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      : 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(20px)',
+    border: isActive 
+      ? 'none'
+      : '1px solid rgba(0, 0, 0, 0.08)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+    color: isActive ? 'white' : '#64748b',
+    transition: 'all 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+    zIndex: 200,
+    boxShadow: isActive 
+      ? '0 8px 24px rgba(102, 126, 234, 0.3)'
+      : '0 4px 12px rgba(0, 0, 0, 0.1)',
+    
+    ...(position === 'topLeft' && { top: '20px', left: '20px' }),
+    ...(position === 'topRight' && { top: '20px', right: '20px' }),
+    ...(position === 'bottomLeft' && { bottom: '20px', left: '20px' }),
+    ...(position === 'bottomRight' && { bottom: '20px', right: '20px' }),
+  });
+
+  const handleRecordClick = () => {
+    setIsRecording(!isRecording);
+    if (onRecordClick) {
+      onRecordClick(!isRecording);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(to br, #f9fafb, #f3f4f6)',
+      position: 'relative'
+    }}>
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+          
+          @keyframes ping {
+            75%, 100% {
+              transform: scale(2);
+              opacity: 0;
+            }
+          }
+          
+          .corner-button:hover {
+            transform: scale(1.1) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+          }
+          
+          .corner-button:active {
+            transform: scale(0.95) !important;
+          }
+
+          .story-card-placeholder {
+            transition: all 0.3s ease;
+          }
+
+          .story-card-placeholder:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(147, 51, 234, 0.1);
+          }
+        `}
+      </style>
+
+      {/* Subtle animated background */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: '-40%',
+          right: '-40%',
+          width: '384px',
+          height: '384px',
+          background: '#c084fc',
+          borderRadius: '50%',
+          mixBlendMode: 'multiply',
+          filter: 'blur(64px)',
+          opacity: 0.05,
+          animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+        }}></div>
+        <div style={{
+          position: 'absolute',
+          bottom: '-40%',
+          left: '-40%',
+          width: '384px',
+          height: '384px',
+          background: '#60a5fa',
+          borderRadius: '50%',
+          mixBlendMode: 'multiply',
+          filter: 'blur(64px)',
+          opacity: 0.05,
+          animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          animationDelay: '2s'
+        }}></div>
+      </div>
+
+      {/* Corner Navigation Buttons */}
+      {/* Top Left - Profile/Back */}
+      <button
+        className="corner-button"
+        style={cornerButtonStyle('topLeft', activeCornerButton === 'profile')}
+        onClick={() => onCornerButtonClick('profile')}
+        title="Profile"
+      >
+        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </button>
+
+      {/* Top Right - Settings */}
+      <button
+        className="corner-button"
+        style={cornerButtonStyle('topRight', activeCornerButton === 'settings')}
+        onClick={() => onCornerButtonClick('settings')}
+        title="Settings"
+      >
+        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+
+      {/* Bottom Left - New Story */}
+      <button
+        className="corner-button"
+        style={cornerButtonStyle('bottomLeft', activeCornerButton === 'new')}
+        onClick={() => onCornerButtonClick('new')}
+        title="New Story"
+      >
+        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* Bottom Right - Grid View */}
+      <button
+        className="corner-button"
+        style={cornerButtonStyle('bottomRight', activeCornerButton === 'grid')}
+        onClick={() => onCornerButtonClick('grid')}
+        title="Grid View"
+      >
+        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      </button>
+
+      {/* Main Content */}
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        maxWidth: '1280px',
+        margin: '0 auto',
+        padding: '0 32px'
+      }}>
+        {/* Logo and Tagline - Centered */}
+        <div style={{
+          textAlign: 'center',
+          paddingTop: '80px',
+          paddingBottom: '64px'
+        }}>
+          <h1 style={{
+            fontSize: '48px',
+            fontWeight: '300',
+            color: '#111827',
+            marginBottom: '12px'
+          }}>
+            AuraMythos
+            <span style={{
+              display: 'inline-block',
+              width: '64px',
+              height: '4px',
+              background: 'linear-gradient(to right, #8b5cf6, #3b82f6)',
+              marginLeft: '16px',
+              marginBottom: '8px',
+              borderRadius: '9999px'
+            }}></span>
+          </h1>
+          <p style={{
+            fontSize: '18px',
+            color: '#6b7280',
+            fontWeight: '300',
+            fontStyle: 'italic'
+          }}>
+            Where your voice becomes legendary visual stories
+          </p>
+        </div>
+
+        {/* Recent Stories Grid - Minimal Style */}
+        <div style={{
+          display: 'grid',
+          gap: '20px',
+          gridTemplateColumns: `repeat(auto-fit, minmax(300px, 1fr))`,
+          maxWidth: '1200px',
+          margin: '0 auto 140px'
+        }}>
+          {recentStories.map((story, index) => (
+            <div
+              key={story.id || index}
+              className="story-card-placeholder"
+              style={{
+                position: 'relative',
+                cursor: 'pointer',
+                minHeight: '180px'
+              }}
+            >
+              {/* If it's just a placeholder */}
+              {typeof story === 'number' ? (
+                <div style={{
+                  height: '100%',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(to bottom, rgba(147, 51, 234, 0.02), rgba(59, 130, 246, 0.01))',
+                  minHeight: '180px',
+                  border: '1px solid rgba(147, 51, 234, 0.06)',
+                  backdropFilter: 'blur(4px)'
+                }} />
+              ) : (
+                /* If it has actual content */
+                <div style={{
+                  height: '100%',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  background: 'linear-gradient(to bottom, rgba(147, 51, 234, 0.02), rgba(59, 130, 246, 0.01))',
+                  minHeight: '180px',
+                  border: '1px solid rgba(147, 51, 234, 0.06)',
+                  backdropFilter: 'blur(4px)',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  <h3 style={{
+                    fontWeight: '500',
+                    color: '#1f2937',
+                    fontSize: '18px',
+                    marginBottom: '12px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {story.title}
+                  </h3>
+                  <p style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    marginBottom: 'auto',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {story.preview}
+                  </p>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginTop: '16px'
+                  }}>
+                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{story.date}</span>
+                    <span style={{
+                      fontSize: '12px',
+                      background: 'linear-gradient(to right, #8b5cf6, #3b82f6)',
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      fontWeight: '500',
+                      textTransform: 'capitalize'
+                    }}>
+                      {story.format}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Recording Button with Logo - Fixed Position */}
+        <div style={{
+          position: 'fixed',
+          bottom: '56px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50
+        }}>
+          <button
+            onClick={handleRecordClick}
+            style={{
+              position: 'relative',
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              background: isRecording ? '#ef4444' : 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
+              border: isRecording ? 'none' : '2px solid rgba(147, 51, 234, 0.1)',
+              boxShadow: isRecording 
+                ? '0 20px 25px -5px rgba(239, 68, 68, 0.3), 0 10px 10px -5px rgba(239, 68, 68, 0.2)'
+                : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {isRecording && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: '50%',
+                background: '#ef4444',
+                animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                opacity: 0.75
+              }} />
+            )}
+            
+            {/* Mic Icon */}
+            <svg 
+              style={{ 
+                width: '32px', 
+                height: '32px',
+                position: 'relative',
+                zIndex: 1,
+                animation: isRecording ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+              }} 
+              fill="none" 
+              stroke="white" 
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // MAIN APP COMPONENT
 // ============================================================================
 export default function App() {
@@ -933,47 +1322,74 @@ export default function App() {
 
   // Handle corner navigation clicks
   const handleCornerNavClick = (buttonId, action) => {
-    console.log('Corner button clicked:', buttonId, action);
-    
-    setCornerNavState(prev => ({
-      ...prev,
-      activeButton: prev.activeButton === buttonId ? null : buttonId
-    }));
-    
-    switch (action) {
-      case 'goBack':
-        if (currentPage === 'app') {
-          setCurrentPage('marketing');
-        } else if (appState.currentStep === 'dashboard' || 
-                   appState.currentStep === 'conversation' || 
-                   appState.currentStep === 'stats') {
+  console.log('Corner button clicked:', buttonId, action);
+  
+  setCornerNavState(prev => ({
+    ...prev,
+    activeButton: prev.activeButton === buttonId ? null : buttonId
+  }));
+  
+  switch (action) {
+    case 'goBack':
+      if (currentPage === 'app') {
+        // Determine where to go back based on current step
+        if (appState.currentStep === 'welcome') {
+          // From welcome, go back to auth
           updateAppState({ currentStep: 'auth' });
+        } else if (appState.currentStep === 'dashboard' || 
+                   appState.currentStep === 'stats') {
+          // From dashboard or stats, go back to welcome
+          updateAppState({ currentStep: 'welcome' });
+        } else if (appState.currentStep === 'conversation') {
+          // From conversation, go back to welcome
+          updateAppState({ currentStep: 'welcome' });
         } else if (appState.currentStep === 'auth') {
+          // From auth, go back to marketing
           setCurrentPage('marketing');
         }
-        break;
-        
-      case 'login':
-        setCurrentPage('app');
-        updateAppState({ currentStep: 'auth' });
-        break;
-        
-      case 'viewStats':
-        updateAppState({ currentStep: 'stats' });
-        break;
-        
-      case 'watchDemo':
-        console.log('Watch demo');
-        break;
-        
-      case 'pricing':
-        console.log('Show pricing');
-        break;
-        
-      default:
-        console.log('Unknown action:', action);
-    }
-  };
+      } else {
+        // If on marketing page, nowhere to go back
+        console.log('Already on marketing page');
+      }
+      break;
+      
+    case 'login':
+      setCurrentPage('app');
+      updateAppState({ currentStep: 'auth' });
+      break;
+      
+    case 'viewStats':
+      // Can be accessed from welcome or dashboard
+      updateAppState({ currentStep: 'stats' });
+      break;
+      
+    case 'openSettings':
+      // Add settings page navigation
+      console.log('Opening settings');
+      // You can add a settings page later:
+      // updateAppState({ currentStep: 'settings' });
+      break;
+      
+    case 'uploadFile':
+      // Handle file upload from welcome or conversation
+      console.log('Upload file clicked');
+      // Add file upload logic here
+      break;
+      
+    case 'watchDemo':
+      console.log('Watch demo clicked');
+      // Could open a modal or navigate to demo
+      break;
+      
+    case 'pricing':
+      console.log('Show pricing clicked');
+      // Could open pricing modal or page
+      break;
+      
+    default:
+      console.log('Unknown action:', action);
+  }
+};
 
   // Function to start the app
   const startApp = () => {
@@ -1214,6 +1630,54 @@ export default function App() {
       { text: `✨ How does this enhanced version look, ${userContent.name || 'my friend'}? (Demo mode)`, delay: 1000 }
     ]);
   };
+
+  {/* WELCOME BACK PAGE */}
+          {appState.currentStep === 'welcome' && (
+            <WelcomeBackPage
+              isMobile={isMobile}
+              onRecordClick={(isRecording) => {
+                // Handle recording - could start a new story
+                if (!isRecording) {
+                  startNewStory();
+                }
+              }}
+              onCornerButtonClick={(buttonId) => {
+                // Handle corner button clicks from welcome page
+                setCornerNavState(prev => ({
+                  ...prev,
+                  activeButton: prev.activeButton === buttonId ? null : buttonId
+                }));
+                
+                switch (buttonId) {
+                  case 'new':
+                    // Plus button - start new story
+                    startNewStory();
+                    break;
+                    
+                  case 'settings':
+                    // Settings button
+                    console.log('Settings clicked from welcome');
+                    // updateAppState({ currentStep: 'settings' });
+                    break;
+                    
+                  case 'profile':
+                    // Profile button - go to dashboard
+                    updateAppState({ currentStep: 'welcome' });
+                    break;
+                    
+                  case 'grid':
+                    // Grid view toggle
+                    console.log('Grid view clicked');
+                    // You could add state to toggle between grid and list view
+                    break;
+                    
+                  default:
+                    console.log('Unknown button:', buttonId);
+                }
+              }}
+              activeCornerButton={cornerNavState.activeButton}
+            />
+          )}
   
   const handleEnhancementApproval = (approved) => {
     logger.userAction('enhancement_approval', { approved });
@@ -1593,7 +2057,7 @@ This was no ordinary day. This was the day everything would change.
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.target.value.trim()) {
                       createUserAccount(e.target.value.trim());
-                      updateAppState({ currentStep: 'dashboard' });
+                      updateAppState({ currentStep: 'welcome' });
                     }
                   }}
                 />
@@ -1613,13 +2077,14 @@ This was no ordinary day. This was the day everything would change.
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     marginBottom: '24px'
                   }}
-                  onClick={(e) => {
-                    const input = e.target.parentElement.querySelector('input');
-                    if (input && input.value.trim()) {
-                      createUserAccount(input.value.trim());
-                      updateAppState({ currentStep: 'dashboard' });
-                    }
-                  }}
+                  o// Line 1085 - needs to be updated
+onClick={(e) => {
+  const input = e.target.parentElement.querySelector('input');
+  if (input && input.value.trim()) {
+    createUserAccount(input.value.trim());
+    updateAppState({ currentStep: 'welcome' }); // Should be 'welcome'
+  }
+}}
                 >
                   Get started
                 </button>
@@ -1635,6 +2100,55 @@ This was no ordinary day. This was the day everything would change.
               </div>
             </div>
           )}
+
+          {/* WELCOME BACK PAGE */}
+{appState.currentStep === 'welcome' && (
+  <WelcomeBackPage
+    isMobile={isMobile}
+    onRecordClick={(isRecording) => {
+      // Handle recording - could start a new story
+      if (!isRecording) {
+        startNewStory();
+      }
+    }}
+    onCornerButtonClick={(buttonId) => {
+      // Handle corner button clicks from welcome page
+      setCornerNavState(prev => ({
+        ...prev,
+        activeButton: prev.activeButton === buttonId ? null : buttonId
+      }));
+      
+      switch (buttonId) {
+        case 'new':
+          // Plus button - start new story
+          startNewStory();
+          break;
+          
+        case 'settings':
+          // Settings button
+          console.log('Settings clicked from welcome');
+          // You can add a settings page later:
+          // updateAppState({ currentStep: 'settings' });
+          break;
+          
+        case 'profile':
+          // Profile button - go to dashboard
+          updateAppState({ currentStep: 'dashboard' });
+          break;
+          
+        case 'grid':
+          // Grid view toggle
+          console.log('Grid view clicked');
+          // You could add state to toggle between grid and list view
+          break;
+          
+        default:
+          console.log('Unknown button:', buttonId);
+      }
+    }}
+    activeCornerButton={cornerNavState.activeButton}
+  />
+)}
 
           {/* DASHBOARD */}
           {appState.currentStep === 'dashboard' && (
