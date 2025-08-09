@@ -645,7 +645,7 @@ function TestimonialsSection({ isMobile }) {
 
 const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeCornerButton }) => {
   const [recentStories, setRecentStories] = useState([]);
-  const [isRecording, setIsRecording] = useState(false);
+  // const [isRecording, setIsRecording] = useState(false);
 
   // Simulated data - replace with actual API call
   useEffect(() => {
@@ -690,13 +690,6 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
     ...(position === 'bottomLeft' && { bottom: '20px', left: '20px' }),
     ...(position === 'bottomRight' && { bottom: '20px', right: '20px' }),
   });
-
-  const handleRecordClick = () => {
-    setIsRecording(!isRecording);
-    if (onRecordClick) {
-      onRecordClick(!isRecording);
-    }
-  };
 
   return (
     <div style={{
@@ -807,17 +800,17 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
         </svg>
       </button>
 
-      {/* Bottom Left - New Story */}
-      <button
-        className="corner-button"
-        style={cornerButtonStyle('bottomLeft', activeCornerButton === 'new')}
-        onClick={() => onCornerButtonClick('new')}
-        title="New Story"
-      >
-        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
+      {/* Bottom Left - Upload Story */}
+<button
+  className="corner-button"
+  style={cornerButtonStyle('bottomLeft', activeCornerButton === 'upload')}
+  onClick={() => onCornerButtonClick('upload')}
+  title="Upload Story"
+>
+  <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+  </svg>
+</button>
 
       {/* Bottom Right - Grid View */}
       <button
@@ -868,7 +861,7 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
             fontWeight: '300',
             fontStyle: 'italic'
           }}>
-            Where your voice becomes legendary visual stories
+            Turning Ideas Into Legendary Stories. Like Magic.
           </p>
         </div>
 
@@ -962,66 +955,589 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
           ))}
         </div>
 
-        {/* Recording Button with Logo - Fixed Position */}
-        <div style={{
-          position: 'fixed',
-          bottom: '56px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 50
+{/* New Story Button - Fixed Position */}
+<div style={{
+  position: 'fixed',
+  bottom: '56px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 50,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px'
+}}>
+  <button
+    onClick={() => {
+      // Both mobile and desktop go straight to new story
+      onRecordClick(false); // This triggers startNewStory()
+    }}
+    style={{
+      position: 'relative',
+      width: '80px',
+      height: '80px',
+      borderRadius: '50%',
+      overflow: 'hidden',
+      transition: 'all 0.3s ease',
+      background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
+      border: 'none',
+      boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 0
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = 'scale(1.05)';
+      e.currentTarget.style.boxShadow = '0 24px 30px -5px rgba(139, 92, 246, 0.4), 0 12px 12px -5px rgba(139, 92, 246, 0.3)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'scale(1)';
+      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)';
+    }}
+  >
+    <img 
+      src="/images/AuraMythosLogo.png"  // Make sure this path is correct
+      alt="Start New Story"
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        borderRadius: '50%',
+        transition: 'all 0.3s ease'
+      }}
+      onError={(e) => {
+        // Fallback to plus icon if logo doesn't load
+        console.error('Logo failed to load from:', e.target.src);
+        e.target.style.display = 'none';
+        const fallback = document.createElement('div');
+        fallback.style.cssText = `
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+          border-radius: 50%;
+        `;
+        fallback.innerHTML = `
+          <svg style="width: 36px; height: 36px; color: white;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        `;
+        e.target.parentElement.appendChild(fallback);
+      }}
+    />
+  </button>
+  
+  {/* Text below button */}
+  <div style={{
+    fontSize: '14px',
+    color: '#6b7280',
+    fontWeight: '500',
+    whiteSpace: 'nowrap',
+    textAlign: 'center',
+    userSelect: 'none'
+  }}>
+    Start New Story
+  </div>
+</div>
+      </div>
+    </div>
+  );
+};
+
+const FileUploadModal = ({ isOpen, onClose, onFileUpload, isMobile }) => {
+  const [uploadState, setUploadState] = useState({
+    isUploading: false,
+    fileName: '',
+    fileContent: '',
+    error: null,
+    success: false
+  });
+  
+  const fileInputRef = useRef(null);
+  
+  if (!isOpen) return null;
+  
+  const handleFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    setUploadState(prev => ({
+      ...prev,
+      isUploading: true,
+      fileName: file.name,
+      error: null
+    }));
+    
+    try {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('File size must be less than 5MB');
+      }
+      
+      // Read file content
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const content = e.target.result;
+        
+        setUploadState(prev => ({
+          ...prev,
+          fileContent: content,
+          isUploading: false,
+          success: true
+        }));
+        
+        // Trigger the callback after a short delay
+        setTimeout(() => {
+          onFileUpload({
+            name: file.name,
+            content: content,
+            type: file.type,
+            size: file.size
+          });
+        }, 1500);
+      };
+      
+      reader.onerror = () => {
+        setUploadState(prev => ({
+          ...prev,
+          isUploading: false,
+          error: 'Failed to read file'
+        }));
+      };
+      
+      reader.readAsText(file);
+      
+    } catch (error) {
+      setUploadState(prev => ({
+        ...prev,
+        isUploading: false,
+        error: error.message
+      }));
+    }
+  };
+  
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(4px)',
+      padding: '20px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '16px',
+        padding: isMobile ? '24px' : '32px',
+        maxWidth: '500px',
+        width: '100%',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+        position: 'relative'
+      }}>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            border: 'none',
+            background: '#f3f4f6',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '18px',
+            color: '#6b7280',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#e5e7eb';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#f3f4f6';
+          }}
+        >
+          ×
+        </button>
+        
+        <h2 style={{
+          fontSize: isMobile ? '20px' : '24px',
+          fontWeight: '600',
+          color: '#1e293b',
+          marginBottom: '8px'
         }}>
-          <button
-            onClick={handleRecordClick}
-            style={{
-              position: 'relative',
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              transition: 'all 0.3s ease',
-              background: isRecording ? '#ef4444' : 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-              border: isRecording ? 'none' : '2px solid rgba(147, 51, 234, 0.1)',
-              boxShadow: isRecording 
-                ? '0 20px 25px -5px rgba(239, 68, 68, 0.3), 0 10px 10px -5px rgba(239, 68, 68, 0.2)'
-                : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isRecording && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: '50%',
-                background: '#ef4444',
-                animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
-                opacity: 0.75
-              }} />
-            )}
-            
-            {/* Mic Icon */}
-            <svg 
-              style={{ 
-                width: '32px', 
-                height: '32px',
-                position: 'relative',
-                zIndex: 1,
-                animation: isRecording ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
-              }} 
-              fill="none" 
-              stroke="white" 
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </button>
+          Upload Your Story
+        </h2>
+        
+        <p style={{
+          color: '#64748b',
+          marginBottom: '24px',
+          fontSize: '14px'
+        }}>
+          Import an existing story to enhance with AI magic
+        </p>
+        
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.doc,.docx,.md,.pdf"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+        
+        {/* Upload area */}
+        <div
+          onClick={triggerFileInput}
+          style={{
+            border: '2px dashed #e2e8f0',
+            borderRadius: '12px',
+            padding: isMobile ? '32px 16px' : '40px 20px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            background: uploadState.isUploading ? '#f9fafb' : 'transparent',
+            ...(uploadState.success && {
+              borderColor: '#10b981',
+              background: 'rgba(16, 185, 129, 0.05)'
+            }),
+            ...(uploadState.error && {
+              borderColor: '#ef4444',
+              background: 'rgba(239, 68, 68, 0.05)'
+            })
+          }}
+        >
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '16px',
+            opacity: 0.8
+          }}>
+            {uploadState.isUploading ? '⏳' : uploadState.success ? '✅' : '📁'}
+          </div>
+          
+          {uploadState.isUploading ? (
+            <div>
+              <p style={{ color: '#667eea', fontWeight: '500' }}>
+                Uploading {uploadState.fileName}...
+              </p>
+            </div>
+          ) : uploadState.success ? (
+            <div>
+              <p style={{ color: '#10b981', fontWeight: '500', marginBottom: '8px' }}>
+                Successfully uploaded!
+              </p>
+              <p style={{ color: '#64748b', fontSize: '14px' }}>
+                {uploadState.fileName}
+              </p>
+            </div>
+          ) : uploadState.error ? (
+            <div>
+              <p style={{ color: '#ef4444', fontWeight: '500', marginBottom: '8px' }}>
+                Upload failed
+              </p>
+              <p style={{ color: '#64748b', fontSize: '14px' }}>
+                {uploadState.error}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: '#1e293b', fontWeight: '500', marginBottom: '8px' }}>
+                Click to browse files
+              </p>
+              <p style={{ color: '#64748b', fontSize: '14px' }}>
+                Supports .txt, .doc, .docx, .md files (max 5MB)
+              </p>
+            </div>
+          )}
         </div>
+        
+        {/* File format info */}
+        <div style={{
+          marginTop: '24px',
+          padding: '16px',
+          background: '#f9fafb',
+          borderRadius: '8px',
+          fontSize: '13px',
+          color: '#64748b'
+        }}>
+          <p style={{ fontWeight: '500', color: '#1e293b', marginBottom: '8px' }}>
+            Supported formats:
+          </p>
+          <ul style={{ margin: '0', paddingLeft: '20px', lineHeight: '1.6' }}>
+            <li>.txt - Plain text files</li>
+            <li>.doc/.docx - Microsoft Word documents</li>
+            <li>.md - Markdown files</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Add this component after FileUploadModal (around line 1130)
+const AuthModal = ({ isOpen, onClose, onSignIn, isMobile }) => {
+  const [name, setName] = useState('');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const inputRef = useRef(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true);
+      // Focus the input after animation
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+  
+  if (!isOpen) return null;
+  
+  const handleSubmit = () => {
+    if (name.trim()) {
+      onSignIn(name.trim());
+      setName('');
+    }
+  };
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(8px)',
+      padding: '20px',
+      animation: isAnimating ? 'fadeIn 0.3s ease-out' : 'none'
+    }}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes slideUp {
+            from {
+              transform: translateY(30px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      
+      <div 
+        style={{
+          background: 'white',
+          borderRadius: '20px',
+          padding: isMobile ? '32px 24px' : '48px',
+          maxWidth: '480px',
+          width: '100%',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.25)',
+          position: 'relative',
+          animation: isAnimating ? 'slideUp 0.4s ease-out' : 'none'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            border: 'none',
+            background: '#f3f4f6',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            color: '#6b7280',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#e5e7eb';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#f3f4f6';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          ×
+        </button>
+        
+        {/* Logo/Icon */}
+<div style={{
+  width: '80px',
+  height: '80px',
+  margin: '0 auto 24px',
+  borderRadius: '50%',  // Changed from '20px' to '50%' for perfect circle
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
+  overflow: 'hidden'
+}}>
+  <img 
+    src="/images/AuraMythosLogo.png"
+    alt="AuraMythos Logo"
+    style={{
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      borderRadius: '50%'  // Also make the image circular
+    }}
+    // ... rest of your code
+  />
+</div>
+        
+        {/* Title */}
+        <h2 style={{
+          fontSize: isMobile ? '28px' : '32px',
+          fontWeight: '700',
+          color: '#1e293b',
+          textAlign: 'center',
+          marginBottom: '12px',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          Welcome to AuraMythos
+        </h2>
+        
+        {/* Subtitle */}
+        <p style={{
+          fontSize: isMobile ? '15px' : '16px',
+          color: '#64748b',
+          textAlign: 'center',
+          marginBottom: '32px',
+          lineHeight: '1.5',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          Let's start by getting to know you. What should we call you?
+        </p>
+        
+        {/* Input */}
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Enter your name..."
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleSubmit();
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '16px 20px',
+            border: '2px solid #e2e8f0',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            background: '#fafbfc',
+            color: '#1e293b',
+            outline: 'none',
+            transition: 'all 0.2s ease',
+            boxSizing: 'border-box',
+            marginBottom: '16px'
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = '#667eea';
+            e.currentTarget.style.background = '#ffffff';
+            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '#e2e8f0';
+            e.currentTarget.style.background = '#fafbfc';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        />
+        
+        {/* Submit Button */}
+        <button
+          onClick={handleSubmit}
+          disabled={!name.trim()}
+          style={{
+            width: '100%',
+            padding: '16px 20px',
+            background: name.trim() 
+              ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+              : '#e2e8f0',
+            color: name.trim() ? 'white' : '#94a3b8',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '600',
+            cursor: name.trim() ? 'pointer' : 'not-allowed',
+            transition: 'all 0.3s ease',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            marginBottom: '20px',
+            transform: 'scale(1)',
+            boxShadow: name.trim() 
+              ? '0 4px 15px rgba(102, 126, 234, 0.3)'
+              : 'none'
+          }}
+          onMouseEnter={(e) => {
+            if (name.trim()) {
+              e.currentTarget.style.transform = 'scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = name.trim() 
+              ? '0 4px 15px rgba(102, 126, 234, 0.3)'
+              : 'none';
+          }}
+        >
+          Start Your Journey ✨
+        </button>
+        
+        {/* Footer text */}
+        <p style={{
+          fontSize: '13px',
+          color: '#94a3b8',
+          textAlign: 'center',
+          margin: 0,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          Your stories are saved locally in your browser
+        </p>
       </div>
     </div>
   );
@@ -1037,6 +1553,7 @@ export default function App() {
   const [cornerNavState, setCornerNavState] = useState({
     activeButton: null,
     showCornerNav: true
+    
   });
   
   // App state from full component
@@ -1109,6 +1626,9 @@ export default function App() {
     recognition: useRef(null),
     lastProcessedIndex: useRef(0)
   };
+
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   useEffect(() => {
     const checkDevice = () => {
@@ -1320,6 +1840,44 @@ export default function App() {
     logger.debug('Enhancement result added with approval system');
   };
 
+  const handleFileUpload = (fileData) => {
+  logger.userAction('file_uploaded', {
+    fileName: fileData.name,
+    fileSize: fileData.size,
+    fileType: fileData.type
+  });
+  
+  // Close the modal
+  setShowUploadModal(false);
+  
+  // Extract title from filename (remove extension)
+  const title = fileData.name.replace(/\.[^/.]+$/, "");
+  
+  // Navigate to conversation with pre-filled content
+  updateAppState({ 
+    currentStep: 'conversation',
+    currentStage: 'format_selection',
+    showNotebook: true,
+    showTitle: true
+  });
+  
+  updateUserContent({
+    title: title,
+    story: fileData.content,
+    input: ''
+  });
+  
+  // Start the conversation flow for uploaded content
+  setTimeout(() => {
+    refs.messageQueue.current = [
+      { text: `I've loaded your story "${title}"! 📖`, delay: 500 },
+      { text: "I can see you already have content ready. What format would you like to transform this into?", delay: 800 },
+      { type: 'story_choices', delay: 1000 }
+    ];
+    processMessageQueue();
+  }, 500);
+};
+
   // Handle corner navigation clicks
   const handleCornerNavClick = (buttonId, action) => {
   console.log('Corner button clicked:', buttonId, action);
@@ -1354,9 +1912,8 @@ export default function App() {
       break;
       
     case 'login':
-      setCurrentPage('app');
-      updateAppState({ currentStep: 'auth' });
-      break;
+      setShowAuthModal(true);
+  break;
       
     case 'viewStats':
       // Can be accessed from welcome or dashboard
@@ -1371,10 +1928,8 @@ export default function App() {
       break;
       
     case 'uploadFile':
-      // Handle file upload from welcome or conversation
-      console.log('Upload file clicked');
-      // Add file upload logic here
-      break;
+  setShowUploadModal(true);
+  break;
       
     case 'watchDemo':
       console.log('Watch demo clicked');
@@ -1393,9 +1948,17 @@ export default function App() {
 
   // Function to start the app
   const startApp = () => {
-    setCurrentPage('app');
-    updateAppState({ currentStep: 'auth' });
+    //setCurrentPage('app');
+    //updateAppState({ currentStep: 'auth' });
+    setShowAuthModal(true);
   };
+
+  const handleAuthSignIn = (name) => {
+  createUserAccount(name);
+  setShowAuthModal(false);
+  setCurrentPage('app');
+  updateAppState({ currentStep: 'welcome' });
+};
   
   // Handle starting a new story
   const startNewStory = () => {
@@ -1649,10 +2212,9 @@ export default function App() {
                 }));
                 
                 switch (buttonId) {
-                  case 'new':
-                    // Plus button - start new story
-                    startNewStory();
-                    break;
+  case 'upload':
+  setShowUploadModal(true);
+  break;
                     
                   case 'settings':
                     // Settings button
@@ -1993,20 +2555,20 @@ This was no ordinary day. This was the day everything would change.
         </div>
       )}
 
-      {/* APP PAGE */}
+      
       {currentPage === 'app' && (
         <div style={{
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
         }}>
-          {/* AUTH SCREEN */}
+          
           {appState.currentStep === 'auth' && (
             <div style={{
               minHeight: '100vh',
               padding: '40px 20px',
               paddingTop: '80px'
             }}>
-              <div style={{
+              {/* <div style={{
                 textAlign: 'center',
                 marginBottom: '48px',
                 maxWidth: '600px',
@@ -2030,14 +2592,14 @@ This was no ordinary day. This was the day everything would change.
                 }}>
                   Go from great idea to clear story. <em style={{ color: '#667eea' }}>Fast.</em>
                 </p>
-              </div>
+              </div> */}
 
               <div style={{
                 maxWidth: '400px',
                 margin: '0 auto',
                 textAlign: 'center'
               }}>
-                <input
+                {/* <input
                   type="text"
                   placeholder="Enter your name..."
                   style={{
@@ -2060,9 +2622,9 @@ This was no ordinary day. This was the day everything would change.
                       updateAppState({ currentStep: 'welcome' });
                     }
                   }}
-                />
+                /> */}
 
-                <button
+                {/* <button
                   style={{
                     width: '100%',
                     padding: '16px 20px',
@@ -2077,17 +2639,17 @@ This was no ordinary day. This was the day everything would change.
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     marginBottom: '24px'
                   }}
-                  o// Line 1085 - needs to be updated
-onClick={(e) => {
-  const input = e.target.parentElement.querySelector('input');
-  if (input && input.value.trim()) {
-    createUserAccount(input.value.trim());
-    updateAppState({ currentStep: 'welcome' }); // Should be 'welcome'
-  }
+                  // Line 1085 - needs to be updated
+                  onClick={(e) => {
+  // const input = e.target.parentElement.querySelector('input');
+  // if (input && input.value.trim()) {
+  //   createUserAccount(input.value.trim());
+  //   updateAppState({ currentStep: 'welcome' }); // Should be 'welcome'
+  // }
 }}
                 >
                   Get started
-                </button>
+                </button> */}
 
                 <p style={{
                   fontSize: '12px',
@@ -2112,40 +2674,39 @@ onClick={(e) => {
       }
     }}
     onCornerButtonClick={(buttonId) => {
-      // Handle corner button clicks from welcome page
-      setCornerNavState(prev => ({
-        ...prev,
-        activeButton: prev.activeButton === buttonId ? null : buttonId
-      }));
+  // Handle corner button clicks from welcome page
+  setCornerNavState(prev => ({
+    ...prev,
+    activeButton: prev.activeButton === buttonId ? null : buttonId
+  }));
+  
+  switch (buttonId) {
+    case 'upload':
+      // Open the upload modal
+      setShowUploadModal(true);
+      break;
       
-      switch (buttonId) {
-        case 'new':
-          // Plus button - start new story
-          startNewStory();
-          break;
-          
-        case 'settings':
-          // Settings button
-          console.log('Settings clicked from welcome');
-          // You can add a settings page later:
-          // updateAppState({ currentStep: 'settings' });
-          break;
-          
-        case 'profile':
-          // Profile button - go to dashboard
-          updateAppState({ currentStep: 'dashboard' });
-          break;
-          
-        case 'grid':
-          // Grid view toggle
-          console.log('Grid view clicked');
-          // You could add state to toggle between grid and list view
-          break;
-          
-        default:
-          console.log('Unknown button:', buttonId);
-      }
-    }}
+    case 'settings':
+      // Settings button
+      console.log('Settings clicked from welcome');
+      // updateAppState({ currentStep: 'settings' });
+      break;
+      
+    case 'profile':
+      // Profile button - go to dashboard
+      updateAppState({ currentStep: 'welcome' });
+      break;
+      
+    case 'grid':
+      // Grid view toggle
+      console.log('Grid view clicked');
+      // You could add state to toggle between grid and list view
+      break;
+      
+    default:
+      console.log('Unknown button:', buttonId);
+  }
+}}
     activeCornerButton={cornerNavState.activeButton}
   />
 )}
@@ -3042,6 +3603,25 @@ onClick={(e) => {
           )}
         </div>
       )}
+      
+      {showUploadModal && (
+  <FileUploadModal
+    isOpen={showUploadModal}
+    onClose={() => setShowUploadModal(false)}
+    onFileUpload={handleFileUpload}
+    isMobile={isMobile}
+  />
+  
+)}
+
+{showAuthModal && (
+  <AuthModal
+    isOpen={showAuthModal}
+    onClose={() => setShowAuthModal(false)}
+    onSignIn={handleAuthSignIn}
+    isMobile={isMobile}
+  />
+)}
     </>
   );
 }
