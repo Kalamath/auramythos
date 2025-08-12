@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { DemoStorySystem, DemoStoryViewer } from './DemoStorySystem';
 
 // ============================================================================
 // ENHANCED LOGGING SYSTEM
@@ -156,6 +157,29 @@ const testimonialData = [
     highlight: "life-changing"
   }
 ];
+
+// Demo stories data
+const demoStories = {
+  scifi: {
+    title: "The Last Signal",
+    genre: "Science Fiction",
+    original: `So like... okay, there's this astronaut, right? And she's been alone on this space station for... I don't know, maybe three months?`,
+    formats: {
+      comic: { 
+        text: "PANEL 1: Wide establishing shot...", 
+        visualConcepts: ["Space station exterior", "Astronaut in observation deck"] 
+      },
+      screenplay: { 
+        text: "FADE IN:...", 
+        visualConcepts: ["Space station interior", "Radio console"] 
+      },
+      book: { 
+        text: "Chapter 1: Signal in the Void...", 
+        visualConcepts: ["Earth through window", "Heart monitor"] 
+      }
+    }
+  }
+};
 
 // ============================================================================
 // CORNER NAVIGATION COMPONENT
@@ -640,27 +664,15 @@ function TestimonialsSection({ isMobile }) {
 
 // ============================================================================
 // WELCOME BACK PAGE COMPONENT
-// Place this AFTER your imports and BEFORE your main App function
 // ============================================================================
-
 const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeCornerButton }) => {
   const [recentStories, setRecentStories] = useState([]);
-  // const [isRecording, setIsRecording] = useState(false);
 
-  // Simulated data - replace with actual API call
   useEffect(() => {
     // Create placeholder cards (empty state)
     setRecentStories([1, 2, 3, 4, 5, 6]); // Just placeholders
-    
-    // Uncomment to test with actual stories
-    // setRecentStories([
-    //   { id: 1, title: "The Last Sunset", format: "screenplay", preview: "A lone astronaut discovers...", date: "2 hours ago" },
-    //   { id: 2, title: "Whispers in Tokyo", format: "manga", preview: "In the neon-lit streets...", date: "Yesterday" },
-    //   { id: 3, title: "The Algorithm's Dream", format: "story", preview: "When the AI began to dream...", date: "3 days ago" }
-    // ]);
   }, []);
 
-  // Corner button style
   const cornerButtonStyle = (position, isActive = false) => ({
     position: 'fixed',
     width: '48px',
@@ -801,16 +813,16 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
       </button>
 
       {/* Bottom Left - Upload Story */}
-<button
-  className="corner-button"
-  style={cornerButtonStyle('bottomLeft', activeCornerButton === 'upload')}
-  onClick={() => onCornerButtonClick('upload')}
-  title="Upload Story"
->
-  <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-  </svg>
-</button>
+      <button
+        className="corner-button"
+        style={cornerButtonStyle('bottomLeft', activeCornerButton === 'upload')}
+        onClick={() => onCornerButtonClick('upload')}
+        title="Upload Story"
+      >
+        <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      </button>
 
       {/* Bottom Right - Grid View */}
       <button
@@ -955,99 +967,102 @@ const WelcomeBackPage = ({ isMobile, onRecordClick, onCornerButtonClick, activeC
           ))}
         </div>
 
-{/* New Story Button - Fixed Position */}
-<div style={{
-  position: 'fixed',
-  bottom: '56px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  zIndex: 50,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px'
-}}>
-  <button
-    onClick={() => {
-      // Both mobile and desktop go straight to new story
-      onRecordClick(false); // This triggers startNewStory()
-    }}
-    style={{
-      position: 'relative',
-      width: '80px',
-      height: '80px',
-      borderRadius: '50%',
-      overflow: 'hidden',
-      transition: 'all 0.3s ease',
-      background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-      border: 'none',
-      boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 0
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = 'scale(1.05)';
-      e.currentTarget.style.boxShadow = '0 24px 30px -5px rgba(139, 92, 246, 0.4), 0 12px 12px -5px rgba(139, 92, 246, 0.3)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'scale(1)';
-      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)';
-    }}
-  >
-    <img 
-      src="/images/AuraMythosLogo.png"  // Make sure this path is correct
-      alt="Start New Story"
-      style={{
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        borderRadius: '50%',
-        transition: 'all 0.3s ease'
-      }}
-      onError={(e) => {
-        // Fallback to plus icon if logo doesn't load
-        console.error('Logo failed to load from:', e.target.src);
-        e.target.style.display = 'none';
-        const fallback = document.createElement('div');
-        fallback.style.cssText = `
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
-          border-radius: 50%;
-        `;
-        fallback.innerHTML = `
-          <svg style="width: 36px; height: 36px; color: white;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        `;
-        e.target.parentElement.appendChild(fallback);
-      }}
-    />
-  </button>
-  
-  {/* Text below button */}
-  <div style={{
-    fontSize: '14px',
-    color: '#6b7280',
-    fontWeight: '500',
-    whiteSpace: 'nowrap',
-    textAlign: 'center',
-    userSelect: 'none'
-  }}>
-    Start New Story
-  </div>
-</div>
+        {/* New Story Button - Fixed Position */}
+        <div style={{
+          position: 'fixed',
+          bottom: '56px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <button
+            onClick={() => {
+              // Both mobile and desktop go straight to new story
+              onRecordClick(false); // This triggers startNewStory()
+            }}
+            style={{
+              position: 'relative',
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
+              border: 'none',
+              boxShadow: '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 24px 30px -5px rgba(139, 92, 246, 0.4), 0 12px 12px -5px rgba(139, 92, 246, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.3), 0 10px 10px -5px rgba(139, 92, 246, 0.2)';
+            }}
+          >
+            <img 
+              src="/images/AuraMythosLogo.png"  // Make sure this path is correct
+              alt="Start New Story"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '50%',
+                transition: 'all 0.3s ease'
+              }}
+              onError={(e) => {
+                // Fallback to plus icon if logo doesn't load
+                console.error('Logo failed to load from:', e.target.src);
+                e.target.style.display = 'none';
+                const fallback = document.createElement('div');
+                fallback.style.cssText = `
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                  height: 100%;
+                  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+                  border-radius: 50%;
+                `;
+                fallback.innerHTML = `
+                  <svg style="width: 36px; height: 36px; color: white;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                `;
+                e.target.parentElement.appendChild(fallback);
+              }}
+            />
+          </button>
+          
+          {/* Text below button */}
+          <div style={{
+            fontSize: '14px',
+            color: '#6b7280',
+            fontWeight: '500',
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+            userSelect: 'none'
+          }}>
+            Start New Story
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
+// ============================================================================
+// FILE UPLOAD MODAL
+// ============================================================================
 const FileUploadModal = ({ isOpen, onClose, onFileUpload, isMobile }) => {
   const [uploadState, setUploadState] = useState({
     isUploading: false,
@@ -1295,7 +1310,9 @@ const FileUploadModal = ({ isOpen, onClose, onFileUpload, isMobile }) => {
   );
 };
 
-// Add this component after FileUploadModal (around line 1130)
+// ============================================================================
+// AUTH MODAL
+// ============================================================================
 const AuthModal = ({ isOpen, onClose, onSignIn, isMobile }) => {
   const [name, setName] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -1402,29 +1419,34 @@ const AuthModal = ({ isOpen, onClose, onSignIn, isMobile }) => {
         </button>
         
         {/* Logo/Icon */}
-<div style={{
-  width: '80px',
-  height: '80px',
-  margin: '0 auto 24px',
-  borderRadius: '50%',  // Changed from '20px' to '50%' for perfect circle
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
-  overflow: 'hidden'
-}}>
-  <img 
-    src="/images/AuraMythosLogo.png"
-    alt="AuraMythos Logo"
-    style={{
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-      borderRadius: '50%'  // Also make the image circular
-    }}
-    // ... rest of your code
-  />
-</div>
+        <div style={{
+          width: '80px',
+          height: '80px',
+          margin: '0 auto 24px',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
+          overflow: 'hidden'
+        }}>
+          <img 
+            src="/images/AuraMythosLogo.png"
+            alt="AuraMythos Logo"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: '50%'
+            }}
+            onError={(e) => {
+              // Fallback gradient if image fails
+              e.target.style.display = 'none';
+              e.target.parentElement.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+              e.target.parentElement.innerHTML = '<span style="color: white; font-size: 32px; font-weight: bold;">A</span>';
+            }}
+          />
+        </div>
         
         {/* Title */}
         <h2 style={{
@@ -1553,7 +1575,14 @@ export default function App() {
   const [cornerNavState, setCornerNavState] = useState({
     activeButton: null,
     showCornerNav: true
-    
+  });
+  
+  // Demo mode state
+  const [demoMode, setDemoMode] = useState({
+    isActive: false,
+    format: 'comic',
+    genre: 'scifi',
+    autoPlay: false
   });
   
   // App state from full component
@@ -1630,6 +1659,7 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   
+  // Main useEffect with URL parameter checking
   useEffect(() => {
     const checkDevice = () => {
       setIsMobile(window.innerWidth < 768);
@@ -1638,6 +1668,18 @@ export default function App() {
     window.addEventListener('resize', checkDevice);
     
     setTimeout(() => setBackendConnected(true), 1000);
+    
+    // Check URL parameters for demo
+    const urlParams = new URLSearchParams(window.location.search);
+    const demoParam = urlParams.get('demo');
+    const genreParam = urlParams.get('genre');
+    
+    if (demoParam) {
+      // Wait for app to initialize
+      setTimeout(() => {
+        launchDemo(demoParam || 'comic', genreParam || 'scifi');
+      }, 500);
+    }
     
     // Load saved user data
     const savedUser = localStorage.getItem('auramythos_user');
@@ -1841,124 +1883,121 @@ export default function App() {
   };
 
   const handleFileUpload = (fileData) => {
-  logger.userAction('file_uploaded', {
-    fileName: fileData.name,
-    fileSize: fileData.size,
-    fileType: fileData.type
-  });
-  
-  // Close the modal
-  setShowUploadModal(false);
-  
-  // Extract title from filename (remove extension)
-  const title = fileData.name.replace(/\.[^/.]+$/, "");
-  
-  // Navigate to conversation with pre-filled content
-  updateAppState({ 
-    currentStep: 'conversation',
-    currentStage: 'format_selection',
-    showNotebook: true,
-    showTitle: true
-  });
-  
-  updateUserContent({
-    title: title,
-    story: fileData.content,
-    input: ''
-  });
-  
-  // Start the conversation flow for uploaded content
-  setTimeout(() => {
-    refs.messageQueue.current = [
-      { text: `I've loaded your story "${title}"! 📖`, delay: 500 },
-      { text: "I can see you already have content ready. What format would you like to transform this into?", delay: 800 },
-      { type: 'story_choices', delay: 1000 }
-    ];
-    processMessageQueue();
-  }, 500);
-};
+    logger.userAction('file_uploaded', {
+      fileName: fileData.name,
+      fileSize: fileData.size,
+      fileType: fileData.type
+    });
+    
+    // Close the modal
+    setShowUploadModal(false);
+    
+    // Extract title from filename (remove extension)
+    const title = fileData.name.replace(/\.[^/.]+$/, "");
+    
+    // Navigate to conversation with pre-filled content
+    updateAppState({ 
+      currentStep: 'conversation',
+      currentStage: 'format_selection',
+      showNotebook: true,
+      showTitle: true
+    });
+    
+    updateUserContent({
+      title: title,
+      story: fileData.content,
+      input: ''
+    });
+    
+    // Start the conversation flow for uploaded content
+    setTimeout(() => {
+      refs.messageQueue.current = [
+        { text: `I've loaded your story "${title}"! 📖`, delay: 500 },
+        { text: "I can see you already have content ready. What format would you like to transform this into?", delay: 800 },
+        { type: 'story_choices', delay: 1000 }
+      ];
+      processMessageQueue();
+    }, 500);
+  };
 
   // Handle corner navigation clicks
   const handleCornerNavClick = (buttonId, action) => {
-  console.log('Corner button clicked:', buttonId, action);
-  
-  setCornerNavState(prev => ({
-    ...prev,
-    activeButton: prev.activeButton === buttonId ? null : buttonId
-  }));
-  
-  switch (action) {
-    case 'goBack':
-      if (currentPage === 'app') {
-        // Determine where to go back based on current step
-        if (appState.currentStep === 'welcome') {
-          // From welcome, go back to auth
-          updateAppState({ currentStep: 'auth' });
-        } else if (appState.currentStep === 'dashboard' || 
-                   appState.currentStep === 'stats') {
-          // From dashboard or stats, go back to welcome
-          updateAppState({ currentStep: 'welcome' });
-        } else if (appState.currentStep === 'conversation') {
-          // From conversation, go back to welcome
-          updateAppState({ currentStep: 'welcome' });
-        } else if (appState.currentStep === 'auth') {
-          // From auth, go back to marketing
-          setCurrentPage('marketing');
+    console.log('Corner button clicked:', buttonId, action);
+    
+    setCornerNavState(prev => ({
+      ...prev,
+      activeButton: prev.activeButton === buttonId ? null : buttonId
+    }));
+    
+    switch (action) {
+      case 'goBack':
+        if (currentPage === 'app') {
+          // Determine where to go back based on current step
+          if (appState.currentStep === 'welcome') {
+            // From welcome, go back to auth
+            updateAppState({ currentStep: 'auth' });
+          } else if (appState.currentStep === 'dashboard' || 
+                     appState.currentStep === 'stats') {
+            // From dashboard or stats, go back to welcome
+            updateAppState({ currentStep: 'welcome' });
+          } else if (appState.currentStep === 'conversation') {
+            // From conversation, go back to welcome
+            updateAppState({ currentStep: 'welcome' });
+          } else if (appState.currentStep === 'auth') {
+            // From auth, go back to marketing
+            setCurrentPage('marketing');
+          }
+        } else {
+          // If on marketing page, nowhere to go back
+          console.log('Already on marketing page');
         }
-      } else {
-        // If on marketing page, nowhere to go back
-        console.log('Already on marketing page');
-      }
-      break;
-      
-    case 'login':
-      setShowAuthModal(true);
-  break;
-      
-    case 'viewStats':
-      // Can be accessed from welcome or dashboard
-      updateAppState({ currentStep: 'stats' });
-      break;
-      
-    case 'openSettings':
-      // Add settings page navigation
-      console.log('Opening settings');
-      // You can add a settings page later:
-      // updateAppState({ currentStep: 'settings' });
-      break;
-      
-    case 'uploadFile':
-  setShowUploadModal(true);
-  break;
-      
-    case 'watchDemo':
-      console.log('Watch demo clicked');
-      // Could open a modal or navigate to demo
-      break;
-      
-    case 'pricing':
-      console.log('Show pricing clicked');
-      // Could open pricing modal or page
-      break;
-      
-    default:
-      console.log('Unknown action:', action);
-  }
-};
+        break;
+        
+      case 'login':
+        setShowAuthModal(true);
+        break;
+        
+      case 'viewStats':
+        // Can be accessed from welcome or dashboard
+        updateAppState({ currentStep: 'stats' });
+        break;
+        
+      case 'openSettings':
+        // Add settings page navigation
+        console.log('Opening settings');
+        // You can add a settings page later:
+        // updateAppState({ currentStep: 'settings' });
+        break;
+        
+      case 'uploadFile':
+        setShowUploadModal(true);
+        break;
+
+      case 'watchDemo':
+        launchDemo('comic', 'scifi');
+        break;
+        
+      case 'pricing':
+        console.log('Show pricing clicked');
+        // Could open pricing modal or page
+        break;
+        
+      default:
+        console.log('Unknown action:', action);
+    }
+  };
 
   // Function to start the app
   const startApp = () => {
-    //setCurrentPage('app');
-    //updateAppState({ currentStep: 'auth' });
     setShowAuthModal(true);
   };
 
   const handleAuthSignIn = (name) => {
-  createUserAccount(name);
-  setShowAuthModal(false);
-  setCurrentPage('app');
-  updateAppState({ currentStep: 'welcome' });
-};
+    createUserAccount(name);
+    setShowAuthModal(false);
+    setCurrentPage('app');
+    updateAppState({ currentStep: 'welcome' });
+  };
   
   // Handle starting a new story
   const startNewStory = () => {
@@ -1976,6 +2015,55 @@ export default function App() {
       processMessageQueue();
       updateAppState({ showNotebook: true });
     }, 500);
+  };
+
+  // Launch demo function
+  const launchDemo = (format = 'comic', genre = 'scifi') => {
+    logger.userAction('demo_launched', { format, genre });
+    
+    setDemoMode({
+      isActive: true,
+      format,
+      genre,
+      autoPlay: true
+    });
+    
+    // Navigate to conversation view
+    setCurrentPage('app');
+    updateAppState({ 
+      currentStep: 'conversation',
+      currentStage: 'demo',
+      showNotebook: true,
+      showTitle: false
+    });
+    
+    // Set a demo title
+    updateUserContent({
+      title: `Demo: ${demoStories[genre].title}`
+    });
+  };
+
+  // Exit demo function
+  const exitDemo = () => {
+    logger.userAction('demo_exited');
+    
+    setDemoMode({
+      isActive: false,
+      format: 'comic',
+      genre: 'scifi',
+      autoPlay: false
+    });
+    
+    // Reset to normal story creation flow
+    updateAppState({ 
+      currentStep: 'conversation',
+      currentStage: 'story_type_selection',
+      showNotebook: true,
+      showTitle: false
+    });
+    
+    // Start normal conversation
+    startNewStory();
   };
   
   // Handle user submit
@@ -2193,53 +2281,6 @@ export default function App() {
       { text: `✨ How does this enhanced version look, ${userContent.name || 'my friend'}? (Demo mode)`, delay: 1000 }
     ]);
   };
-
-  {/* WELCOME BACK PAGE */}
-          {appState.currentStep === 'welcome' && (
-            <WelcomeBackPage
-              isMobile={isMobile}
-              onRecordClick={(isRecording) => {
-                // Handle recording - could start a new story
-                if (!isRecording) {
-                  startNewStory();
-                }
-              }}
-              onCornerButtonClick={(buttonId) => {
-                // Handle corner button clicks from welcome page
-                setCornerNavState(prev => ({
-                  ...prev,
-                  activeButton: prev.activeButton === buttonId ? null : buttonId
-                }));
-                
-                switch (buttonId) {
-  case 'upload':
-  setShowUploadModal(true);
-  break;
-                    
-                  case 'settings':
-                    // Settings button
-                    console.log('Settings clicked from welcome');
-                    // updateAppState({ currentStep: 'settings' });
-                    break;
-                    
-                  case 'profile':
-                    // Profile button - go to dashboard
-                    updateAppState({ currentStep: 'welcome' });
-                    break;
-                    
-                  case 'grid':
-                    // Grid view toggle
-                    console.log('Grid view clicked');
-                    // You could add state to toggle between grid and list view
-                    break;
-                    
-                  default:
-                    console.log('Unknown button:', buttonId);
-                }
-              }}
-              activeCornerButton={cornerNavState.activeButton}
-            />
-          )}
   
   const handleEnhancementApproval = (approved) => {
     logger.userAction('enhancement_approval', { approved });
@@ -2373,14 +2414,16 @@ This was no ordinary day. This was the day everything would change.
               margin: '0 0 40px 0',
               maxWidth: '600px'
             }}>
-              Let your writing journey being with AuraMythos. Your personal writing assistant.
+              Let your writing journey begin with AuraMythos. Your personal writing assistant.
             </p>
 
+            {/* Hero Section Buttons - FIXED VERSION */}
             <div style={{
               display: 'flex',
               gap: '16px',
               flexDirection: isMobile ? 'column' : 'row'
             }}>
+              {/* Start Writing Button */}
               <button 
                 style={{
                   padding: '14px 28px',
@@ -2390,23 +2433,74 @@ This was no ordinary day. This was the day everything would change.
                   color: 'white',
                   fontSize: '16px',
                   fontWeight: '600',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
                 }}
                 onClick={startApp}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
                 Start Writing Free
               </button>
 
-              <button style={{
-                padding: '14px 28px',
-                background: 'transparent',
-                border: '2px solid #e2e8f0',
-                borderRadius: '24px',
-                color: '#4a4a4a',
-                fontSize: '16px',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}>
+              {/* Demo Button */}
+              <button 
+                style={{
+                  padding: '14px 28px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  border: 'none',
+                  borderRadius: '24px',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.3s ease'
+                }}
+                onClick={() => launchDemo('comic', 'scifi')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(245, 158, 11, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                🎬 Try Live Demo
+              </button>
+
+              {/* How It Works Button */}
+              <button 
+                style={{
+                  padding: '14px 28px',
+                  background: 'transparent',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '24px',
+                  color: '#4a4a4a',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#667eea';
+                  e.currentTarget.style.color = '#667eea';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.color = '#4a4a4a';
+                }}
+              >
                 See How It Works
               </button>
             </div>
@@ -2555,102 +2649,25 @@ This was no ordinary day. This was the day everything would change.
         </div>
       )}
 
-      
+      {/* APP PAGES */}
       {currentPage === 'app' && (
         <div style={{
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
         }}>
           
+          {/* AUTH STEP - Currently not used since we use modal */}
           {appState.currentStep === 'auth' && (
             <div style={{
               minHeight: '100vh',
               padding: '40px 20px',
               paddingTop: '80px'
             }}>
-              {/* <div style={{
-                textAlign: 'center',
-                marginBottom: '48px',
-                maxWidth: '600px',
-                margin: '0 auto 48px'
-              }}>
-                <h1 style={{
-                  fontSize: isMobile ? '2.5rem' : '3.5rem',
-                  fontWeight: '700',
-                  color: '#1e293b',
-                  margin: '0 0 16px 0',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                }}>
-                  AuraMythos
-                </h1>
-                
-                <p style={{
-                  fontSize: isMobile ? '1.1rem' : '1.3rem',
-                  color: '#64748b',
-                  margin: '0 0 8px 0',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                }}>
-                  Go from great idea to clear story. <em style={{ color: '#667eea' }}>Fast.</em>
-                </p>
-              </div> */}
-
               <div style={{
                 maxWidth: '400px',
                 margin: '0 auto',
                 textAlign: 'center'
               }}>
-                {/* <input
-                  type="text"
-                  placeholder="Enter your name..."
-                  style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                    background: '#fafbfc',
-                    color: '#1e293b',
-                    outline: 'none',
-                    transition: 'all 0.2s ease',
-                    boxSizing: 'border-box',
-                    marginBottom: '16px'
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      createUserAccount(e.target.value.trim());
-                      updateAppState({ currentStep: 'welcome' });
-                    }
-                  }}
-                /> */}
-
-                {/* <button
-                  style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    background: '#1e293b',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                    marginBottom: '24px'
-                  }}
-                  // Line 1085 - needs to be updated
-                  onClick={(e) => {
-  // const input = e.target.parentElement.querySelector('input');
-  // if (input && input.value.trim()) {
-  //   createUserAccount(input.value.trim());
-  //   updateAppState({ currentStep: 'welcome' }); // Should be 'welcome'
-  // }
-}}
-                >
-                  Get started
-                </button> */}
-
                 <p style={{
                   fontSize: '12px',
                   color: '#94a3b8',
@@ -2664,52 +2681,52 @@ This was no ordinary day. This was the day everything would change.
           )}
 
           {/* WELCOME BACK PAGE */}
-{appState.currentStep === 'welcome' && (
-  <WelcomeBackPage
-    isMobile={isMobile}
-    onRecordClick={(isRecording) => {
-      // Handle recording - could start a new story
-      if (!isRecording) {
-        startNewStory();
-      }
-    }}
-    onCornerButtonClick={(buttonId) => {
-  // Handle corner button clicks from welcome page
-  setCornerNavState(prev => ({
-    ...prev,
-    activeButton: prev.activeButton === buttonId ? null : buttonId
-  }));
-  
-  switch (buttonId) {
-    case 'upload':
-      // Open the upload modal
-      setShowUploadModal(true);
-      break;
-      
-    case 'settings':
-      // Settings button
-      console.log('Settings clicked from welcome');
-      // updateAppState({ currentStep: 'settings' });
-      break;
-      
-    case 'profile':
-      // Profile button - go to dashboard
-      updateAppState({ currentStep: 'welcome' });
-      break;
-      
-    case 'grid':
-      // Grid view toggle
-      console.log('Grid view clicked');
-      // You could add state to toggle between grid and list view
-      break;
-      
-    default:
-      console.log('Unknown button:', buttonId);
-  }
-}}
-    activeCornerButton={cornerNavState.activeButton}
-  />
-)}
+          {appState.currentStep === 'welcome' && (
+            <WelcomeBackPage
+              isMobile={isMobile}
+              onRecordClick={(isRecording) => {
+                // Handle recording - could start a new story
+                if (!isRecording) {
+                  startNewStory();
+                }
+              }}
+              onCornerButtonClick={(buttonId) => {
+                // Handle corner button clicks from welcome page
+                setCornerNavState(prev => ({
+                  ...prev,
+                  activeButton: prev.activeButton === buttonId ? null : buttonId
+                }));
+                
+                switch (buttonId) {
+                  case 'upload':
+                    // Open the upload modal
+                    setShowUploadModal(true);
+                    break;
+                    
+                  case 'settings':
+                    // Settings button
+                    console.log('Settings clicked from welcome');
+                    // updateAppState({ currentStep: 'settings' });
+                    break;
+                    
+                  case 'profile':
+                    // Profile button - go to dashboard
+                    updateAppState({ currentStep: 'welcome' });
+                    break;
+                    
+                  case 'grid':
+                    // Grid view toggle
+                    console.log('Grid view clicked');
+                    // You could add state to toggle between grid and list view
+                    break;
+                    
+                  default:
+                    console.log('Unknown button:', buttonId);
+                }
+              }}
+              activeCornerButton={cornerNavState.activeButton}
+            />
+          )}
 
           {/* DASHBOARD */}
           {appState.currentStep === 'dashboard' && (
@@ -3317,219 +3334,128 @@ This was no ordinary day. This was the day everything would change.
                     scrollBehavior: 'smooth'
                   }}
                 >
-                  {/* All messages */}
-                  {conversationState.messages.map((message, index) => {
-                    if (message.type === 'input') return null;
-                    
-                    // Handle magical loading animation
-                    if (message.type === 'magical_loading') {
-                      return (
-                        <div key={index} style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '30px 20px',
-                          margin: '16px 0',
-                          background: 'transparent',
-                          border: 'none',
-                          borderRadius: 0
-                        }}>
-                          <div style={{
-                            position: 'relative',
-                            width: '180px',
-                            height: '120px',
-                            marginBottom: '20px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'transparent'
-                          }}>
-                            <div style={{
-                              position: 'absolute',
-                              top: '50%',
-                              left: '50%',
-                              transform: 'translate(-50%, -50%)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              opacity: 0.8
+                  {/* Conditional rendering for demo mode */}
+                  {demoMode.isActive ? (
+                    <DemoStorySystem
+                      initialGenre={demoMode.genre}
+                      initialFormat={demoMode.format}
+                      autoStart={demoMode.autoPlay}
+                      onExit={exitDemo}
+                    />
+                  ) : (
+                    <>
+                      {/* Regular conversation messages */}
+                      {conversationState.messages.map((message, index) => {
+                        // Skip input messages - they're handled separately
+                        if (message.type === 'input') return null;
+                        
+                        // System messages
+                        if (message.type === 'system') {
+                          return (
+                            <div key={index} style={{ marginBottom: '16px' }}>
+                              {message.content}
+                            </div>
+                          );
+                        }
+                        
+                        // User messages
+                        if (message.type === 'user') {
+                          return (
+                            <div key={index} style={{ 
+                              marginBottom: '16px',
+                              fontStyle: 'italic',
+                              color: '#667eea'
                             }}>
-                              {[...Array(6)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    position: 'absolute',
-                                    width: '8px',
-                                    height: '8px',
-                                    background: '#667eea',
-                                    borderRadius: '50%',
-                                    left: `${30 + i * 20}px`,
-                                    top: `${20 + Math.sin(i) * 15}px`,
-                                    animation: `floatSparkle ${2 + i * 0.3}s ease-in-out infinite`,
-                                    animationDelay: `${i * 0.2}s`,
-                                    opacity: 0.7
-                                  }}
-                                />
+                              You: {message.content}
+                            </div>
+                          );
+                        }
+                        
+                        // Story choices
+                        if (message.type === 'story_choices') {
+                          return (
+                            <div key={index} className="story-choices">
+                              {[
+                                { title: 'Book', desc: 'Novel/Story' },
+                                { title: 'Comic', desc: 'Visual Story' },
+                                { title: 'Screenplay', desc: 'Film Script' },
+                                { title: 'Content', desc: 'Blog/Article' },
+                                { title: 'Game', desc: 'Interactive' },
+                                { title: 'Interactive', desc: 'Choose Path' }
+                              ].map((choice) => (
+                                <button
+                                  key={choice.title}
+                                  className="story-choice"
+                                  onClick={() => handleStoryChoice(choice.title)}
+                                >
+                                  <div className="story-choice-content">
+                                    <div className="title">{choice.title}</div>
+                                    <div className="description">{choice.desc}</div>
+                                  </div>
+                                </button>
                               ))}
-                              
-                              <div style={{
-                                fontSize: '32px',
-                                color: '#667eea',
-                                animation: 'pulseGlow 2s ease-in-out infinite',
-                                textShadow: '0 0 10px rgba(102, 126, 234, 0.3)',
-                                background: 'transparent'
-                              }}>
-                                ✨
+                            </div>
+                          );
+                        }
+                        
+                        // Magical loading
+                        if (message.type === 'magical_loading') {
+                          return (
+                            <div key={index} style={{ 
+                              textAlign: 'center', 
+                              padding: '20px',
+                              marginBottom: '16px' 
+                            }}>
+                              <div className="magical-text">✨ Weaving magic into your story... ✨</div>
+                            </div>
+                          );
+                        }
+                        
+                        // Enhancement result
+                        if (message.type === 'enhancement_result') {
+                          return (
+                            <div key={index} style={{ marginBottom: '16px' }}>
+                              <div className="enhancement-content">
+                                {message.content}
                               </div>
+                              {enhancementState.awaitingApproval && (
+                                <div className="approval-buttons">
+                                  <button
+                                    className="approval-btn approve"
+                                    onClick={() => handleEnhancementApproval(true)}
+                                  >
+                                    ✅ Looks Great!
+                                  </button>
+                                  <button
+                                    className="approval-btn deny"
+                                    onClick={() => handleEnhancementApproval(false)}
+                                  >
+                                    ↩️ Keep Original
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                          
-                          <div className="magical-text">
-                            ✨ Weaving story magic... ✨
-                          </div>
+                          );
+                        }
+                        
+                        return null;
+                      })}
+                      
+                      {/* Currently typing indicator */}
+                      {conversationState.isTyping && (
+                        <div style={{ marginBottom: '16px' }}>
+                          {conversationState.currentTyping}
+                          <span style={{
+                            animation: 'blink 1s infinite',
+                            marginLeft: '2px'
+                          }}>|</span>
                         </div>
-                      );
-                    }
-
-                    // Handle enhancement result with approval
-                    if (message.type === 'enhancement_result') {
-                      return (
-                        <div key={index}>
-                          <div style={{ 
-                            marginBottom: '12px',
-                            color: '#16a34a',
-                            fontWeight: '600'
-                          }}>
-                            ✅ Story Enhanced Successfully!
-                          </div>
-                          <div className="enhancement-content">
-                            {message.content}
-                          </div>
-                          {enhancementState.awaitingApproval && (
-                            <div style={{ marginTop: '16px' }}>
-                              <div className="approval-buttons">
-                                <button 
-                                  className="approval-btn approve" 
-                                  onClick={() => handleEnhancementApproval(true)}
-                                >
-                                  ✅ Approve
-                                </button>
-                                <button 
-                                  className="approval-btn deny" 
-                                  onClick={() => handleEnhancementApproval(false)}
-                                >
-                                  ❌ Deny
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {enhancementState.enhancementResult?.approved && (
-                            <div style={{ marginTop: '16px' }}>
-                              <div className="approval-buttons">
-                                <button 
-                                  className="approval-btn approve" 
-                                  onClick={() => exportStory('txt')}
-                                >
-                                  📄 Download
-                                </button>
-                                <button 
-                                  className="approval-btn approve" 
-                                  onClick={() => exportStory('copy')}
-                                >
-                                  📋 Copy
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    if (message.type === 'story_choices') {
-                      return (
-                        <div key={index} className="story-choices">
-                          <button className="story-choice" onClick={() => handleStoryChoice('Book')}>
-                            <div className="story-choice-content">
-                              <span className="title">Book</span>
-                              <span className="description">Rich narrative</span>
-                            </div>
-                          </button>
-                          <button className="story-choice" onClick={() => handleStoryChoice('Comic')}>
-                            <div className="story-choice-content">
-                              <span className="title">Comic</span>
-                              <span className="description">Visual panels</span>
-                            </div>
-                          </button>
-                          <button className="story-choice" onClick={() => handleStoryChoice('Screenplay')}>
-                            <div className="story-choice-content">
-                              <span className="title">Screenplay</span>
-                              <span className="description">Scene breakdown</span>
-                            </div>
-                          </button>
-                          <button className="story-choice" onClick={() => handleStoryChoice('Content')}>
-                            <div className="story-choice-content">
-                              <span className="title">Content</span>
-                              <span className="description">Blog article</span>
-                            </div>
-                          </button>
-                          <button className="story-choice" onClick={() => handleStoryChoice('Game')}>
-                            <div className="story-choice-content">
-                              <span className="title">Game</span>
-                              <span className="description">Interactive</span>
-                            </div>
-                          </button>
-                          <button className="story-choice" onClick={() => handleStoryChoice('Interactive')}>
-                            <div className="story-choice-content">
-                              <span className="title">Interactive</span>
-                              <span className="description">Branching</span>
-                            </div>
-                          </button>
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <div 
-                        key={index} 
-                        style={{
-                          marginBottom: '12px',
-                          lineHeight: '1.8',
-                          whiteSpace: 'pre-wrap',
-                          minHeight: '28.8px',
-                          ...(message.type === 'user' ? { marginLeft: '20px', color: '#667eea', fontStyle: 'italic' } : {}),
-                          ...(message.type === 'loading' ? { color: '#9ca3af' } : {})
-                        }}
-                      >
-                        {message.content}
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Currently typing */}
-                  {conversationState.isTyping && (
-                    <div style={{
-                      marginBottom: '12px',
-                      lineHeight: '1.8',
-                      minHeight: '28.8px'
-                    }}>
-                      {conversationState.currentTyping}
-                      {conversationState.showCursor && (
-                        <span style={{
-                          display: 'inline-block',
-                          width: '2px',
-                          height: '20px',
-                          background: '#667eea',
-                          marginLeft: '2px',
-                          verticalAlign: 'text-bottom',
-                          animation: 'blink 1s infinite'
-                        }} />
                       )}
-                    </div>
+                      
+                      {/* Scroll anchor */}
+                      <div ref={refs.messagesEnd} />
+                    </>
                   )}
-                  
-                  <div ref={refs.messagesEnd} />
                 </div>
 
                 {/* INPUT AREA */}
@@ -3604,24 +3530,24 @@ This was no ordinary day. This was the day everything would change.
         </div>
       )}
       
+      {/* MODALS */}
       {showUploadModal && (
-  <FileUploadModal
-    isOpen={showUploadModal}
-    onClose={() => setShowUploadModal(false)}
-    onFileUpload={handleFileUpload}
-    isMobile={isMobile}
-  />
-  
-)}
+        <FileUploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onFileUpload={handleFileUpload}
+          isMobile={isMobile}
+        />
+      )}
 
-{showAuthModal && (
-  <AuthModal
-    isOpen={showAuthModal}
-    onClose={() => setShowAuthModal(false)}
-    onSignIn={handleAuthSignIn}
-    isMobile={isMobile}
-  />
-)}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSignIn={handleAuthSignIn}
+          isMobile={isMobile}
+        />
+      )}
     </>
   );
 }
