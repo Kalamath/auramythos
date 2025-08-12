@@ -1,602 +1,841 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
+import FormatLenses from "./components/FormatLenses";
+// …and wherever you render the notebook preview:
 
-// Demo story content
-const demoContent = {
-  scifi: {
-    title: "The Last Signal",
-    original: "So like... okay, there's this astronaut, right? And she's been alone on this space station for... I don't know, maybe three months? The thing is, Earth stopped responding to her messages two weeks ago. Complete radio silence. She's got enough supplies for another year, but the isolation is getting to her. Then yesterday, she picks up this weird signal from somewhere deep in space - not from Earth, but it's definitely artificial. It's repeating every 47 minutes. Should she respond? What if it's dangerous? But what if it's her only chance to connect with someone... or something?",
-    
-    enhanced: {
-      comic: `🎨 COMIC BOOK FORMAT
+<FormatLenses
+  content={userContent.story}
+  title={userContent.title || "Untitled"}
+  initialLens="book"
+  transformers={{
+    book: writingAssistant.formatTransformers.novel,
+    screenplay: writingAssistant.formatTransformers.screenplay,
+    comic: writingAssistant.formatTransformers.comic,
+  }}
+  onLensChange={(lens) => console.log("Lens changed:", lens)}
+/>;
 
-┌─────────────────────────────────────┐
-│ PANEL 1 - WIDE SHOT                │
-│                                     │
-│ The ISS Horizon floats against     │
-│ the infinite void. Earth below,    │
-│ half in shadow.                    │
-│                                     │
-│ CAPTION: "Day 97 in orbit..."      │
-└─────────────────────────────────────┘
+// Aura's personality and responses
+const auraResponses = {
+  welcome:
+    "Hello! I'm Aura, your AI writing assistant ✨ I help transform your ideas into professional stories, scripts, and more. What should I call you?",
 
-┌─────────────────────────────────────┐
-│ PANEL 2 - INT. OBSERVATION DECK    │
-│                                     │
-│ COMMANDER SARAH CHEN floats by     │
-│ the window. Dark circles. Tired.   │
-│                                     │
-│  ╭─────────────────────────╮       │
-│  │ Day 97. Still no word   │       │
-│  │ from Houston...         │       │
-│  ╰─────────────────────────╯       │
-│        (thought bubble)             │
-└─────────────────────────────────────┘
+  introduction: (name) =>
+    `Nice to meet you, ${name}! 😊 I can help you write in any format - novels, screenplays, comics, you name it. I'll also provide personalized tips to improve your writing style. Ready to create something amazing together?`,
 
-┌─────────────────────────────────────┐
-│ PANEL 3 - CLOSE ON CONSOLE         │
-│                                     │
-│ Red lights blink. Screen shows:    │
-│ "12 FAILED TRANSMISSIONS"          │
-│                                     │
-│ SFX: *BLINK* *BLINK* *BLINK*      │
-└─────────────────────────────────────┘
+  storyPrompt:
+    "Great! Let's start with your idea. Don't worry about making it perfect - just write naturally. Tell me a story, describe a scene, or share any creative idea you have... Even a few sentences will do! I'll help you develop it from there.",
 
-┌─────────────────────────────────────┐
-│ PANEL 4 - SARAH AT CONTROLS        │
-│                                     │
-│ She reaches for the transmit       │
-│ button. Hesitates.                 │
-│                                     │
-│  ╭─────────────────────────╮       │
-│  │ ISS Horizon to Mission  │       │
-│  │ Control. Please respond.│       │
-│  │ ...Anyone?              │       │
-│  ╰──────────┬──────────────╯       │
-│             ◯ (speech bubble)       │
-└─────────────────────────────────────┘
+  analyzing:
+    "Interesting story! Let me analyze this... I can see some great potential here. I'm detecting themes and narrative elements...",
 
-┌─────────────────────────────────────┐
-│ PANEL 5 - THE SIGNAL!              │
-│                                     │
-│ Console ERUPTS with lights!        │
-│ Alien pattern on screen!           │
-│                                     │
-│ SFX: BEEP! BEEP! BEEP!            │
-│                                     │
-│ CAPTION: "Signal origin: Unknown"  │
-└─────────────────────────────────────┘
+  genreQuestion:
+    "I'm getting a sense of your story's direction. To give you the best suggestions, which genre fits your vision best?",
 
-┌─────────────────────────────────────┐
-│ PANEL 6 - EXTREME CLOSE: EYES      │
-│                                     │
-│ Sarah's eyes. Wide. Terror mixed   │
-│ with desperate hope.               │
-│                                     │
-│  ╭─────────────────────────╮       │
-│  │ That's... not from     │       │
-│  │ Earth.                 │       │
-│  ╰─────────────────────────╯       │
-│        (whisper bubble)            │
-└─────────────────────────────────────┘`,
+  formatQuestion: (genre) =>
+    `Perfect! A ${genre} story has so many possibilities. Now, let's choose how to present your story. Each format has its own strengths - which speaks to you?`,
 
-      screenplay: `📽️ SCREENPLAY FORMAT
+  transforming: (format) =>
+    `Transforming your story into ${format} format... Applying professional formatting standards... Adding structure and style elements... Almost done...`,
 
+  presenting:
+    "Here's your professionally formatted story! ✨ I've maintained your voice while adding industry-standard formatting. Notice how the format changes the reading experience?",
 
-                    THE LAST SIGNAL
-
-                         Written by
-                      
-                      AuraMythos AI
-
-
-FADE IN:
-
-INT. ISS HORIZON - OBSERVATION DECK - DAY (SHIP TIME)
-
-The curved observation window frames Earth below. 
-Tablets and equipment float in zero gravity.
-
-COMMANDER SARAH CHEN (30s), exhausted but alert, 
-floats near the window. Her tablet displays: 
-"TRANSMISSION FAILED" in red letters.
-
-                    SARAH
-          (to herself)
-     Day 97. Still nothing.
-
-She pushes off the wall, gliding toward--
-
-THE COMMUNICATION CONSOLE
-
-Red status lights blink steadily. A rhythmic, 
-mechanical heartbeat.
-
-                    SARAH (CONT'D)
-          (into microphone)
-     ISS Horizon to Houston Control.
-     This is Commander Chen. Priority
-     status update. Please respond.
-
-STATIC fills the speakers. Nothing else.
-
-                    SARAH (CONT'D)
-          (quieter)
-     Anyone...
-
-SUDDENLY--
-
-The console ERUPTS. Lights flash in patterns never 
-seen before. Alarms sound.
-
-ON THE CONSOLE SCREEN:
-
-A waveform pulses. Text appears: 
-"SIGNAL ORIGIN: UNKNOWN"
-"DISTANCE: 4.7 BILLION KM"
-
-Sarah's face pales. She grabs the console to steady 
-herself.
-
-                    SARAH (CONT'D)
-          (whispered)
-     Oh my god.
-
-She checks the trajectory data. Her hands shake.
-
-                    SARAH (CONT'D)
-     That's... that's not from 
-     Earth.
-
-INSERT - CONSOLE DISPLAY
-
-"SIGNAL REPEAT: 47 MINUTES"
-"PATTERN: ARTIFICIAL"
-
-BACK TO SARAH
-
-She stares at the display. Her reflection in the 
-dark screen shows haunted eyes.
-
-                    SARAH (CONT'D)
-          (to herself)
-     Do I answer?
-
-FADE OUT.
-
-END OF SCENE`,
-
-      book: `📖 NOVEL FORMAT
-
-CHAPTER ONE
-Signal in the Void
-
-     The silence was the worst part.
-     
-     Commander Sarah Chen pressed her palm against the observation deck's window, feeling the cold seep through the triple-layered thermoglass. Earth hung below—or was it above? After ninety-seven days alone on the ISS Horizon, concepts like "up" and "down" had lost all meaning.
-     
-     She'd stopped counting the failed transmissions after the fortieth attempt. Houston had gone dark two weeks ago, cutting her off mid-sentence during a routine status report. One moment, she'd been reading atmospheric pressure data; the next, nothing but the cosmic hiss of background radiation.
-     
-     "Day 97," she whispered to the voice recorder floating beside her. "Still no response from Mission Control. Supplies holding steady—thirteen months remaining if I maintain current consumption rates. Solar panels operating at 94% efficiency. Life support nominal."
-     
-     She paused, then added in a smaller voice: "Crew morale... deteriorating."
-     
-     The joke fell flat even to her own ears. There was no crew. Just her, four hundred kilometers above a silent Earth, traveling at seven point six kilometers per second toward nowhere.
-     
-     The communication console behind her suddenly erupted in a cascade of lights and alerts. Sarah's heart lurched—finally, contact! She pushed off the window, sending herself floating across the module in practiced movements.
-     
-     But as she reached the console, her relief crystallized into confusion, then something deeper. Something primal.
-     
-     The signal pattern was all wrong. The frequency, the modulation, the point of origin—everything about it screamed one impossible truth: This wasn't coming from Earth.
-     
-     The display showed the source: beyond Neptune's orbit, impossibly far, repeating every forty-seven minutes with mechanical precision.
-     
-     Sarah's hand hovered over the response controls. In the reflection of the dark screen, she could see her own haunted eyes staring back. Two weeks of isolation. Ninety-seven days of slow-burning solitude. And now this.
-     
-     She had to make a choice that might determine not just her fate, but possibly humanity's: Should she answer?
-     
-     The signal pulsed again. Forty-seven minutes. Like clockwork.
-     
-     Like something waiting.`
-    }
-  }
+  tips: {
+    passive:
+      "💡 I noticed some passive voice. Try making your verbs more active for stronger impact!",
+    dialogue: "💡 Consider adding dialogue to bring your characters to life.",
+    sensory:
+      "💡 Adding sensory details (sight, sound, touch) can immerse readers deeper.",
+    variety: "💡 Varying your sentence length creates better rhythm and flow.",
+    goodStart: "✨ You have a strong narrative voice! Keep developing it.",
+  },
 };
 
-// Component for displaying the demo story with typewriter effect
-const DemoStoryViewer = ({ content, format, onComplete }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
+// Typing component with natural speed variation
+const TypingText = ({ text, onComplete, speed = 30 }) => {
+  const [displayedText, setDisplayedText] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const containerRef = useRef(null);
-  
-  useEffect(() => {
-    if (currentIndex < content.length && isTyping) {
-      const timeout = setTimeout(() => {
-        setDisplayedText(prev => prev + content[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
-      }, 20); // Typing speed
-      
-      return () => clearTimeout(timeout);
-    } else if (currentIndex >= content.length) {
-      setIsTyping(false);
-      if (onComplete) onComplete();
-    }
-  }, [currentIndex, content, isTyping, onComplete]);
+  const [isTyping, setIsTyping] = useState(true);
 
-  // Auto-scroll to follow text
   useEffect(() => {
-    if (containerRef.current && isTyping) {
-      const scrollContainer = containerRef.current.closest('.scrollable-content');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    if (currentIndex < text.length && isTyping) {
+      // Natural typing speed variation
+      const variation = Math.random() * 20 - 10;
+      const delay = speed + variation;
+
+      const timeout = setTimeout(() => {
+        setDisplayedText((prev) => prev + text[currentIndex]);
+        setCurrentIndex((prev) => prev + 1);
+      }, delay);
+
+      return () => clearTimeout(timeout);
+    } else if (currentIndex >= text.length && isTyping) {
+      setIsTyping(false);
+      if (onComplete) {
+        onComplete();
       }
     }
-  }, [displayedText, isTyping]);
-  
+  }, [currentIndex, text, isTyping, speed, onComplete]);
+
   return (
-    <span ref={containerRef}>
+    <span>
       {displayedText}
       {isTyping && (
-        <span style={{
-          animation: 'blink 1s infinite',
-          marginLeft: '2px',
-          color: '#667eea'
-        }}>|</span>
+        <span
+          style={{
+            animation: "blink 1s infinite",
+            marginLeft: "2px",
+            color: "#667eea",
+          }}
+        >
+          |
+        </span>
       )}
     </span>
   );
 };
 
-// Main demo system component - renders directly in notebook
-const DemoStorySystem = ({ 
-  initialGenre = 'scifi', 
-  initialFormat = 'comic',
-  autoStart = false,
-  onExit
-}) => {
-  const [currentStage, setCurrentStage] = useState('intro');
-  const [selectedFormat, setSelectedFormat] = useState(initialFormat);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showEnhanced, setShowEnhanced] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [enhancementComplete, setEnhancementComplete] = useState(false);
-  
-  const story = demoContent[initialGenre];
-  
+// Aura thinking indicator
+const AuraThinking = () => (
+  <div
+    style={{
+      marginBottom: "16px",
+      fontStyle: "italic",
+      color: "#94a3b8",
+      fontSize: "13px",
+    }}
+  >
+    <span style={{ animation: "pulse 2s infinite" }}>Aura is thinking...</span>
+  </div>
+);
+
+// Writing assistant logic
+const writingAssistant = {
+  analyzeStory: (text) => {
+    const analysis = {
+      wordCount: text.split(" ").length,
+      hasDialogue: text.includes('"') || text.includes("'"),
+      hasAction: /\b(ran|jumped|crashed|fell|grabbed|threw)\b/i.test(text),
+      mood: /\b(dark|bright|happy|sad|mysterious|dangerous)\b/i.test(text)
+        ? "atmospheric"
+        : "neutral",
+      tips: [],
+    };
+
+    // Generate tips based on analysis
+    if (text.includes("was") || text.includes("were")) {
+      analysis.tips.push("passive");
+    }
+    if (!analysis.hasDialogue) {
+      analysis.tips.push("dialogue");
+    }
+    if (!/\b(saw|heard|felt|smelled|touched)\b/i.test(text)) {
+      analysis.tips.push("sensory");
+    }
+    if (analysis.wordCount > 20 && !text.includes(",")) {
+      analysis.tips.push("variety");
+    }
+    if (analysis.tips.length === 0) {
+      analysis.tips.push("goodStart");
+    }
+
+    return analysis;
+  },
+
+  formatTransformers: {
+    comic: (text, title = "Your Story") => {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const panels = sentences
+        .slice(0, 6)
+        .map((sentence, i) => {
+          const isDialogue = sentence.includes('"') || sentence.includes("'");
+          const isAction = /\b(suddenly|then|crashed|ran|jumped)\b/i.test(
+            sentence
+          );
+
+          return `
+┌─────────────────────────────────────┐
+│ PANEL ${i + 1}${isAction ? " - ACTION SHOT" : ""}       │
+│                                     │
+│ ${sentence.trim().substring(0, 35)} │
+│ ${sentence.trim().length > 35 ? sentence.trim().substring(35, 70) : ""}│
+│                                     │
+${
+  isDialogue
+    ? `│  ╭─────────────────────────╮       │
+│  │ ${sentence.match(/"([^"]*)"/)?.[1]?.substring(0, 20) || "Dialogue here"} │
+│  ╰─────────────────────────╯       │`
+    : "│                                     │"
+}
+└─────────────────────────────────────┘`;
+        })
+        .join("\n");
+
+      return `🎨 COMIC BOOK FORMAT
+      
+${title.toUpperCase()}
+Issue #1
+
+${panels}`;
+    },
+
+    screenplay: (text, title = "Your Story") => {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const hasDialogue = text.includes('"') || text.includes("'");
+
+      let script = `📽️ SCREENPLAY FORMAT
+
+
+                    ${title.toUpperCase()}
+
+                         Written by
+                      
+                      You & Aura
+
+
+FADE IN:
+
+INT. SCENE - DAY
+
+${sentences[0]?.trim()}
+
+`;
+
+      if (hasDialogue) {
+        const dialogue = text.match(/"([^"]*)"/)?.[1];
+        script += `
+                    CHARACTER
+     ${dialogue || "Your dialogue here"}
+`;
+      }
+
+      sentences.slice(1, 3).forEach((sentence) => {
+        script += `
+${sentence.trim()}
+
+`;
+      });
+
+      script += `
+FADE OUT.`;
+
+      return script;
+    },
+
+    novel: (text, title = "Your Story") => {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const paragraphs = [];
+
+      for (let i = 0; i < sentences.length; i += 3) {
+        const para = sentences.slice(i, i + 3).join(" ");
+        paragraphs.push(`     ${para}`);
+      }
+
+      return `📖 NOVEL FORMAT
+
+CHAPTER ONE
+${title}
+
+${paragraphs.join("\n     \n")}`;
+    },
+  },
+};
+
+// Main Aura Demo System
+const DemoStorySystem = ({ onExit }) => {
+  const [messages, setMessages] = useState([]);
+  const [currentStage, setCurrentStage] = useState("welcome");
+  const [isAuraTyping, setIsAuraTyping] = useState(false);
+  const [isAuraThinking, setIsAuraThinking] = useState(false);
+  const [awaitingInput, setAwaitingInput] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [userData, setUserData] = useState({
+    name: "",
+    story: "",
+    genre: "",
+    format: "",
+    analysis: null,
+  });
+
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // NEW: prevent StrictMode double-run of the intro
+  const startedRef = useRef(false);
+  // NEW: keep track of timers so we can clear them on unmount
+  const timersRef = useRef([]);
+
+  const pushTimer = (t) => {
+    timersRef.current.push(t);
+    return t;
+  };
+
+  const uniqueId = (prefix = "m") =>
+    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // Auto-scroll
   useEffect(() => {
-    if (autoStart) {
-      // Auto-start the demo flow
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Start the demo (guarded)
+  useEffect(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      startConversation();
+    }
+
+    return () => {
+      // IMPORTANT: reset for StrictMode remount so startConversation runs again
+      startedRef.current = false;
+
+      // clear timers from this mount
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    };
+  }, []);
+
+  // Add Aura message with typing effect (stable id + tracked timer)
+  const addAuraMessage = (text, callback) => {
+    const messageId = uniqueId("aura");
+    setIsAuraTyping(true);
+
+    setMessages((prev) => [
+      ...prev,
+      { id: messageId, type: "aura", content: text, isTyping: true },
+    ]);
+
+    const typingTime = Math.min(text.length * 30, 4000);
+    pushTimer(
       setTimeout(() => {
-        setCurrentStage('welcome');
-      }, 500);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, isTyping: false } : m))
+        );
+        setIsAuraTyping(false);
+        if (callback) callback();
+      }, typingTime)
+    );
+  };
+
+  // Add user message (stable id)
+  const addUserMessage = (text) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: uniqueId("user"), type: "user", content: text },
+    ]);
+  };
+
+  // Thinking indicator (tracked timer)
+  const showThinking = (duration = 2000, callback) => {
+    setIsAuraThinking(true);
+    pushTimer(
+      setTimeout(() => {
+        setIsAuraThinking(false);
+        if (callback) callback();
+      }, duration)
+    );
+  };
+
+  const startConversation = () => {
+    pushTimer(
+      setTimeout(() => {
+        addAuraMessage(auraResponses.welcome, () => {
+          setAwaitingInput(true);
+          pushTimer(setTimeout(() => inputRef.current?.focus(), 100));
+        });
+      }, 500)
+    );
+  };
+
+  const handleUserInput = () => {
+    const input = inputValue.trim();
+    if (!input) return;
+
+    addUserMessage(input);
+    setInputValue("");
+    setAwaitingInput(false);
+
+    switch (currentStage) {
+      case "welcome":
+        handleNameInput(input);
+        break;
+      case "story_input":
+        handleStoryInput(input);
+        break;
+      case "genre_selection":
+        handleGenreSelection(input);
+        break;
+      case "format_selection":
+        handleFormatSelection(input);
+        break;
+      default:
+        break;
     }
-  }, [autoStart]);
-  
-  const handleNameSubmit = () => {
-    if (nameInput.trim()) {
-      setUserName(nameInput.trim());
-      setCurrentStage('intro');
+  };
+
+  const handleNameInput = (name) => {
+    setUserData((prev) => ({ ...prev, name }));
+
+    showThinking(1500, () => {
+      addAuraMessage(auraResponses.introduction(name), () => {
+        pushTimer(
+          setTimeout(() => {
+            addAuraMessage("Let's create something! 🚀", () => {
+              setCurrentStage("story_prompt");
+              pushTimer(
+                setTimeout(() => {
+                  addAuraMessage(auraResponses.storyPrompt, () => {
+                    setCurrentStage("story_input");
+                    setAwaitingInput(true);
+                    inputRef.current?.focus();
+                  });
+                }, 800)
+              );
+            });
+          }, 600)
+        );
+      });
+    });
+  };
+
+  const handleStoryInput = (story) => {
+    if (story.length < 20) {
+      addAuraMessage(
+        "That's a bit short! Could you add a bit more detail? Even just a sentence or two more would help! 😊",
+        () => {
+          setAwaitingInput(true);
+          inputRef.current?.focus();
+        }
+      );
+      return;
+    }
+
+    const analysis = writingAssistant.analyzeStory(story);
+    setUserData((prev) => ({ ...prev, story, analysis }));
+
+    showThinking(2000, () => {
+      addAuraMessage(auraResponses.analyzing, () => {
+        pushTimer(
+          setTimeout(() => {
+            addAuraMessage(auraResponses.genreQuestion, () => {
+              setCurrentStage("genre_selection");
+              // stable id for options
+              pushTimer(
+                setTimeout(() => {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: uniqueId("opts"),
+                      type: "options",
+                      content: [
+                        {
+                          value: "scifi",
+                          label: "🚀 Science Fiction",
+                          desc: "Technology, space, future",
+                        },
+                        {
+                          value: "fantasy",
+                          label: "🐉 Fantasy",
+                          desc: "Magic, mythical worlds",
+                        },
+                        {
+                          value: "mystery",
+                          label: "🔍 Mystery",
+                          desc: "Puzzles, suspense",
+                        },
+                      ],
+                    },
+                  ]);
+                }, 500)
+              );
+            });
+          }, 600)
+        );
+      });
+    });
+  };
+
+  const handleGenreSelection = (genre) => {
+    if (isAuraTyping || isAuraThinking) return; // guard double-clicks
+    setUserData((prev) => ({ ...prev, genre }));
+
+    const genreLabel = genre === "scifi" ? "science fiction" : genre;
+
+    showThinking(1500, () => {
+      addAuraMessage(auraResponses.formatQuestion(genreLabel), () => {
+        setCurrentStage("format_selection");
+        pushTimer(
+          setTimeout(() => {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: uniqueId("opts"),
+                type: "options",
+                content: [
+                  {
+                    value: "comic",
+                    label: "🎨 Comic Book",
+                    desc: "Visual panels with dialogue",
+                  },
+                  {
+                    value: "screenplay",
+                    label: "📽️ Screenplay",
+                    desc: "Professional script format",
+                  },
+                  {
+                    value: "novel",
+                    label: "📖 Novel",
+                    desc: "Traditional narrative prose",
+                  },
+                ],
+              },
+            ]);
+          }, 500)
+        );
+      });
+    });
+  };
+
+  const handleFormatSelection = (format) => {
+    if (isAuraTyping || isAuraThinking) return; // guard double-clicks
+    setUserData((prev) => ({ ...prev, format }));
+
+    const formatLabel = format === "comic" ? "comic book" : format;
+
+    showThinking(1000, () => {
+      addAuraMessage(auraResponses.transforming(formatLabel), () => {
+        showThinking(2500, () => {
+          const transformed = writingAssistant.formatTransformers[format](
+            userData.story,
+            `${userData.name}'s Story`
+          );
+
+          addAuraMessage(auraResponses.presenting, () => {
+            setMessages((prev) => [
+              ...prev,
+              { id: uniqueId("result"), type: "result", content: transformed },
+            ]);
+
+            pushTimer(
+              setTimeout(() => {
+                const tips = userData.analysis?.tips?.map(
+                  (tip) => auraResponses.tips[tip]
+                );
+                if (tips && tips.length > 0) {
+                  const allTips =
+                    "Here are some personalized writing tips for you:\n\n" +
+                    tips.join(" ");
+                  addAuraMessage(allTips, () => {
+                    pushTimer(
+                      setTimeout(() => {
+                        setMessages((prev) => [
+                          ...prev,
+                          {
+                            id: uniqueId("actions"),
+                            type: "actions",
+                            content: [
+                              {
+                                action: "try_another",
+                                label: "Try Another Format",
+                              },
+                              { action: "new_story", label: "Write New Story" },
+                              {
+                                action: "exit",
+                                label: "Start Full Version ✨",
+                              },
+                            ],
+                          },
+                        ]);
+                      }, 1000)
+                    );
+                  });
+                }
+              }, 1000)
+            );
+          });
+        });
+      });
+    });
+  };
+
+  const handleOptionClick = (value) => {
+    if (isAuraTyping || isAuraThinking) return; // prevent rapid double fires
+    setMessages((prev) => {
+      const filtered = prev.filter((m) => m.type !== "options");
+      return [
+        ...filtered,
+        { id: uniqueId("user"), type: "user", content: value },
+      ];
+    });
+
+    if (currentStage === "genre_selection") {
+      handleGenreSelection(value);
+    } else if (currentStage === "format_selection") {
+      handleFormatSelection(value);
     }
   };
-  
-  const handleFormatSelect = (format) => {
-    setSelectedFormat(format);
-    setIsProcessing(true);
-    setCurrentStage('processing');
-    
-    // Simulate processing time
-    setTimeout(() => {
-      setIsProcessing(false);
-      setShowEnhanced(true);
-      setCurrentStage('showing_enhanced');
-    }, 3000);
-  };
-  
-  const handleRestart = () => {
-    setCurrentStage('format_selection');
-    setShowEnhanced(false);
-    setEnhancementComplete(false);
-    setIsProcessing(false);
-  };
-  
-  const handleExit = () => {
-    if (onExit) {
-      onExit();
+
+  const handleActionClick = (action) => {
+    if (isAuraTyping || isAuraThinking) return;
+    if (action === "exit") {
+      onExit?.();
+      return;
+    }
+    if (action === "try_another") {
+      setMessages([]);
+      setCurrentStage("format_selection");
+      addAuraMessage("Let's try a different format for your story!", () => {
+        handleGenreSelection(userData.genre);
+      });
+      return;
+    }
+    if (action === "new_story") {
+      setMessages([]);
+      setUserData({
+        name: userData.name,
+        story: "",
+        genre: "",
+        format: "",
+        analysis: null,
+      });
+      setCurrentStage("story_prompt");
+      addAuraMessage(
+        `Alright ${userData.name}, let's write something new!`,
+        () => {
+          addAuraMessage(auraResponses.storyPrompt, () => {
+            setCurrentStage("story_input");
+            setAwaitingInput(true);
+            inputRef.current?.focus();
+          });
+        }
+      );
     }
   };
-  
+
   return (
     <>
-      {/* Demo Mode indicator - subtle, at top */}
-      <div style={{ 
-        marginBottom: '20px',
-        fontSize: '13px',
-        color: '#667eea',
-        fontStyle: 'italic'
-      }}>
-        🎬 Demo Mode - {story.title}
+      <style>{`
+        @keyframes blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+      `}</style>
+
+      {/* Messages */}
+      <div style={{ marginBottom: awaitingInput ? "80px" : "20px" }}>
+        {messages.map((message) => (
+          <div key={message.id} style={{ marginBottom: "16px" }}>
+            {message.type === "aura" && (
+              <div style={{ color: "#2c3e50" }}>
+                <span style={{ color: "#667eea", fontWeight: "600" }}>
+                  Aura:{" "}
+                </span>
+                {message.isTyping ? (
+                  <TypingText text={message.content} />
+                ) : (
+                  message.content
+                )}
+              </div>
+            )}
+
+            {message.type === "user" && (
+              <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                <span style={{ fontWeight: "600" }}>You: </span>
+                {message.content}
+              </div>
+            )}
+
+            {message.type === "options" && (
+              <div style={{ marginTop: "12px" }}>
+                {message.content.map((option, i) => (
+                  <button
+                    key={`${message.id}-${i}`}
+                    onClick={() => handleOptionClick(option.value)}
+                    disabled={isAuraTyping || isAuraThinking}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginBottom: "8px",
+                      padding: "10px 14px",
+                      background: "white",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "4px",
+                      cursor:
+                        isAuraTyping || isAuraThinking
+                          ? "not-allowed"
+                          : "pointer",
+                      textAlign: "left",
+                      transition: "all 0.2s ease",
+                      fontFamily: "inherit",
+                      opacity: isAuraTyping || isAuraThinking ? 0.6 : 1,
+                      pointerEvents:
+                        isAuraTyping || isAuraThinking ? "none" : "auto",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#667eea";
+                      e.currentTarget.style.background =
+                        "rgba(102, 126, 234, 0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#cbd5e1";
+                      e.currentTarget.style.background = "white";
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: "600",
+                        fontSize: "14px",
+                        marginBottom: "2px",
+                      }}
+                    >
+                      {option.label}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#64748b" }}>
+                      {option.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {message.type === "result" && (
+              <div
+                style={{
+                  marginTop: "12px",
+                  padding: "16px",
+                  background: "rgba(102, 126, 234, 0.02)",
+                  border: "1px solid rgba(102, 126, 234, 0.2)",
+                  borderRadius: "4px",
+                  whiteSpace: "pre-wrap",
+                  fontSize: "13px",
+                  lineHeight: "1.8",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                }}
+              >
+                {message.content}
+              </div>
+            )}
+
+            {message.type === "actions" && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {message.content.map((action, i) => (
+                  <button
+                    key={`${message.id}-${i}`}
+                    onClick={() => handleActionClick(action.action)}
+                    disabled={isAuraTyping || isAuraThinking}
+                    style={{
+                      padding: "8px 16px",
+                      background:
+                        action.action === "exit"
+                          ? "#10b981"
+                          : action.action === "try_another"
+                          ? "white"
+                          : "#667eea",
+                      color:
+                        action.action === "try_another" ? "#667eea" : "white",
+                      border:
+                        action.action === "try_another"
+                          ? "1px solid #667eea"
+                          : "none",
+                      borderRadius: "4px",
+                      cursor:
+                        isAuraTyping || isAuraThinking
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: "14px",
+                      fontFamily: "inherit",
+                      opacity: isAuraTyping || isAuraThinking ? 0.7 : 1,
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isAuraThinking && <AuraThinking />}
+
+        <div ref={messagesEndRef} />
       </div>
-      
-      {/* Stage: Welcome */}
-      {currentStage === 'welcome' && (
-        <>
-          <div style={{ marginBottom: '16px' }}>
-            Welcome to AuraMythos! ✨
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            Let's transform your story into something legendary. What should I call you?
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              type="text"
-              placeholder="Enter your name..."
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleNameSubmit();
-                }
-              }}
-              style={{
-                padding: '6px 12px',
-                fontSize: '14px',
-                border: 'none',
-                borderBottom: '1px solid #cbd5e1',
-                background: 'transparent',
-                fontFamily: 'inherit',
-                width: '200px',
-                color: '#2c3e50',
-                outline: 'none'
-              }}
-              autoFocus
-            />
-            <button 
-              onClick={handleNameSubmit}
-              style={{
-                marginLeft: '12px',
-                padding: '6px 16px',
-                background: nameInput.trim() ? '#667eea' : '#e2e8f0',
-                color: nameInput.trim() ? 'white' : '#94a3b8',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: nameInput.trim() ? 'pointer' : 'not-allowed',
-                fontSize: '14px',
-                fontFamily: 'inherit'
-              }}
-              disabled={!nameInput.trim()}
-            >
-              Begin →
-            </button>
-          </div>
-        </>
-      )}
-      
-      {/* Stage: Intro */}
-      {currentStage === 'intro' && (
-        <>
-          <div style={{ marginBottom: '16px' }}>
-            Hi {userName}! 👋
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            I'm going to show you how AuraMythos transforms rough ideas into 
-            polished, professional stories. Let's start with a raw story idea 
-            someone shared with us...
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <button 
-              onClick={() => setCurrentStage('showing_original')}
-              style={{
-                padding: '6px 16px',
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontFamily: 'inherit'
-              }}
-            >
-              Show Me ✨
-            </button>
-          </div>
-        </>
-      )}
-      
-      {/* Stage: Showing Original */}
-      {(currentStage === 'showing_original' || 
-        currentStage === 'format_selection' || 
-        currentStage === 'processing' || 
-        currentStage === 'showing_enhanced') && (
-        <>
-          <div style={{ 
-            marginBottom: '12px',
-            color: '#667eea',
-            fontWeight: '600'
-          }}>
-            📝 Original Story (as told by {userName || 'the user'}):
-          </div>
-          <div style={{
-            marginBottom: '20px',
-            paddingLeft: '12px',
-            borderLeft: '2px solid #667eea'
-          }}>
-            {story.original}
-          </div>
-          
-          {currentStage === 'showing_original' && (
-            <div style={{ marginBottom: '16px' }}>
-              <button 
-                onClick={() => setCurrentStage('format_selection')}
-                style={{
-                  padding: '6px 16px',
-                  background: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontFamily: 'inherit'
-                }}
-              >
-                Transform This Story →
-              </button>
-            </div>
-          )}
-        </>
-      )}
-      
-      {/* Stage: Format Selection */}
-      {currentStage === 'format_selection' && (
-        <>
-          <div style={{ 
-            marginBottom: '16px',
-            color: '#667eea',
-            fontWeight: '600'
-          }}>
-            ✨ Choose your story format:
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            {['comic', 'screenplay', 'book'].map((format) => (
-              <button 
-                key={format}
-                onClick={() => handleFormatSelect(format)}
-                style={{
-                  padding: '6px 16px',
-                  marginRight: '8px',
-                  background: selectedFormat === format ? '#667eea' : 'transparent',
-                  color: selectedFormat === format ? 'white' : '#2c3e50',
-                  border: `1px solid ${selectedFormat === format ? '#667eea' : '#cbd5e1'}`,
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontFamily: 'inherit'
-                }}
-              >
-                {format === 'comic' ? '🎨 Comic' : 
-                 format === 'screenplay' ? '📽️ Screenplay' : 
-                 '📖 Novel'}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-      
-      {/* Stage: Processing */}
-      {currentStage === 'processing' && isProcessing && (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '32px 0'
-        }}>
-          <div style={{
-            fontSize: '24px',
-            marginBottom: '16px',
-            animation: 'pulse 2s ease-in-out infinite'
-          }}>
-            ✨
-          </div>
-          <div style={{ 
-            color: '#667eea', 
-            fontWeight: '600'
-          }}>
-            Weaving magic into your story...
-          </div>
-          <div style={{ 
-            fontSize: '12px', 
-            color: '#64748b', 
-            marginTop: '8px'
-          }}>
-            Transforming to {selectedFormat} format
-          </div>
+
+      {/* Input Area */}
+      {awaitingInput && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            left: "100px",
+            right: "60px",
+            display: "flex",
+            gap: "8px",
+            alignItems: "flex-end",
+            background: "rgba(255, 255, 255, 0.95)",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isAuraTyping) {
+                e.preventDefault();
+                handleUserInput();
+              }
+            }}
+            placeholder={
+              currentStage === "welcome"
+                ? "Enter your name..."
+                : currentStage === "story_input"
+                ? "Write your story idea..."
+                : "Type your response..."
+            }
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontFamily: "inherit",
+              fontSize: "14px",
+              color: "#2c3e50",
+            }}
+            disabled={isAuraTyping}
+          />
+          <button
+            onClick={handleUserInput}
+            disabled={!inputValue.trim() || isAuraTyping}
+            style={{
+              padding: "8px 16px",
+              background:
+                inputValue.trim() && !isAuraTyping ? "#667eea" : "#e2e8f0",
+              color: inputValue.trim() && !isAuraTyping ? "white" : "#94a3b8",
+              border: "none",
+              borderRadius: "4px",
+              cursor:
+                inputValue.trim() && !isAuraTyping ? "pointer" : "not-allowed",
+              fontSize: "14px",
+              fontFamily: "inherit",
+            }}
+          >
+            Send
+          </button>
         </div>
-      )}
-      
-      {/* Stage: Showing Enhanced */}
-      {currentStage === 'showing_enhanced' && showEnhanced && (
-        <>
-          <div style={{ 
-            marginBottom: '12px',
-            color: '#667eea',
-            fontWeight: '600'
-          }}>
-            ✨ Your Enhanced Story:
-          </div>
-          <div style={{
-            marginBottom: '20px',
-            paddingLeft: '12px',
-            borderLeft: '2px solid #764ba2'
-          }}>
-            <DemoStoryViewer 
-              content={story.enhanced[selectedFormat]}
-              format={selectedFormat}
-              onComplete={() => setEnhancementComplete(true)}
-            />
-          </div>
-          
-          {/* Demo Complete - Only shows after typing is done */}
-          {enhancementComplete && (
-            <>
-              <div style={{ 
-                marginTop: '24px',
-                marginBottom: '16px',
-                padding: '16px',
-                background: 'rgba(16, 185, 129, 0.05)',
-                borderRadius: '4px',
-                border: '1px solid rgba(16, 185, 129, 0.2)'
-              }}>
-                <div style={{ 
-                  color: '#059669', 
-                  fontWeight: '600', 
-                  marginBottom: '8px'
-                }}>
-                  🎉 Demo Complete!
-                </div>
-                <div style={{ 
-                  fontSize: '13px', 
-                  color: '#64748b'
-                }}>
-                  In the full version, you get even more powerful AI enhancements,
-                  visual generation, and export options!
-                </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <button 
-                  onClick={handleRestart}
-                  style={{
-                    padding: '6px 16px',
-                    marginRight: '8px',
-                    background: 'transparent',
-                    color: '#667eea',
-                    border: '1px solid #667eea',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  Try Another Format
-                </button>
-                <button 
-                  onClick={handleExit}
-                  style={{
-                    padding: '6px 16px',
-                    background: '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  Start Creating
-                </button>
-              </div>
-            </>
-          )}
-        </>
       )}
     </>
   );
 };
 
-export { DemoStorySystem, DemoStoryViewer };
+export { DemoStorySystem };
