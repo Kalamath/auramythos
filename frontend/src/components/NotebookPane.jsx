@@ -31,14 +31,14 @@ const shellStyle = {
 
 const overlayBarStyle = {
   position: "absolute",
-  bottom: 14, // bottom-left so it sits beside the stats pill
-  left: 14,
+  bottom: 12,
+  left: 12,
   display: "flex",
   gap: 8,
   alignItems: "center",
-  background: "rgba(255,255,255,0.7)",
+  background: "rgba(255,255,255,0.55)", // soft; looks like paper
   backdropFilter: "blur(6px)",
-  border: "1px solid #e5e7eb",
+  border: "none", // no border
   borderRadius: 999,
   padding: "6px 8px",
   zIndex: 5,

@@ -7,6 +7,7 @@ import InlinePaperInput from "./components/InlinePaperInput";
 const uniqueId = (p = "m") =>
   `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+// --- Aura text ---
 const auraResponses = {
   welcome:
     "Hello! I'm Aura, your AI writing assistant ✨ I help transform your ideas into professional stories, scripts, and more. What should I call you?",
@@ -14,26 +15,28 @@ const auraResponses = {
     `Nice to meet you, ${name}! 😊 I can help you write in any format—novels, screenplays, comics, you name it. Ready to create something amazing together?`,
   storyPrompt:
     "Great! Start with your idea. Don’t worry about perfection—just write naturally. A few sentences is fine!",
+  analyzing:
+    "Interesting! Let me analyze this… spotting themes and narrative elements…",
 };
 
-/** Paper container; we dock the notebook at its bottom edge */
+// ---- Paper container (anchors the NotebookPane) ----
 const paperBodyStyle = {
   position: "relative",
   width: "min(760px, 92vw)",
   margin: "0 auto",
   padding: "0 16px",
-  // ensures the docked notebook never overlaps the last chat lines
-  paddingBottom: 140,
+  minHeight: "calc(100vh - 120px)",
+  // room so chat never hides behind the docked editor
+  paddingBottom: 180,
 };
 
-/** Dock the NotebookPane INSIDE the paper (absolute bottom) */
+// NotebookPane is **inside** the paper and centered by left/right=16 (same as paper padding)
 const dockInsidePaperStyle = {
   position: "absolute",
-  left: 0,
-  right: 0,
-  bottom: 12,
+  left: 16,
+  right: 16,
+  bottom: 8,
   zIndex: 2000,
-  pointerEvents: "none", // let clicks pass through outside the pane itself
 };
 
 function TypingText({ text, speed = 30 }) {
@@ -94,9 +97,12 @@ export const DemoStorySystem = ({ onExit }) => {
   const [isAuraTyping, setIsAuraTyping] = useState(false);
   const [isAuraThinking, setIsAuraThinking] = useState(false);
   const [awaitingInput, setAwaitingInput] = useState(false);
+
+  // Notebook state (transparent, bottom-docked)
   const [userData, setUserData] = useState({ name: "", story: "" });
   const [isLensesOpen, setIsLensesOpen] = useState(false);
 
+  // --- helpers ---
   const addAuraMessage = (text, done) => {
     const id = uniqueId("aura");
     setIsAuraTyping(true);
@@ -116,7 +122,13 @@ export const DemoStorySystem = ({ onExit }) => {
     );
   };
 
-  // Kickoff once with welcome line
+  const addUserMessage = (text) =>
+    setMessages((p) => [
+      ...p,
+      { id: uniqueId("user"), type: "user", content: text },
+    ]);
+
+  // --- kickoff (restores full flow: asks name first) ---
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -124,26 +136,20 @@ export const DemoStorySystem = ({ onExit }) => {
     pushTimer(
       setTimeout(() => {
         addAuraMessage(auraResponses.welcome, () => setAwaitingInput(true));
-      }, 400)
+      }, 350)
     );
 
     return () => {
       timersRef.current.forEach(clearTimeout);
       timersRef.current = [];
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
-  // Keep the bottom of the paper in view as content grows
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, awaitingInput]);
 
-  const addUserMessage = (text) =>
-    setMessages((p) => [
-      ...p,
-      { id: uniqueId("user"), type: "user", content: text },
-    ]);
-
+  // --- routing ---
   const handleName = (name) => {
     setUserData((p) => ({ ...p, name }));
     setIsAuraThinking(true);
@@ -177,7 +183,8 @@ export const DemoStorySystem = ({ onExit }) => {
     pushTimer(
       setTimeout(() => {
         setIsAuraThinking(false);
-        addAuraMessage("Got it! I’m analyzing your idea… ✍️", () => {
+        addAuraMessage(auraResponses.analyzing, () => {
+          // show simple actions so the flow continues
           setMessages((p) => [
             ...p,
             {
@@ -190,7 +197,7 @@ export const DemoStorySystem = ({ onExit }) => {
             },
           ]);
         });
-      }, 1000)
+      }, 900)
     );
   };
 
@@ -205,7 +212,7 @@ export const DemoStorySystem = ({ onExit }) => {
   };
 
   const handleActionClick = (action) => {
-    if (action === "open_lenses") setIsLensesOpen(true);
+    if (action === "open_lenses") return setIsLensesOpen(true);
     if (action === "new_story") {
       setMessages([]);
       setUserData((p) => ({ ...p, story: "" }));
@@ -226,101 +233,95 @@ export const DemoStorySystem = ({ onExit }) => {
         @keyframes pulse { 0%,100%{ opacity:.6 } 50%{ opacity:1 } }
       `}</style>
 
-      {/* PAPER BODY */}
+      {/* PAPER BODY (conversation prints here) */}
       <div style={paperBodyStyle}>
-        {/* Conversation printed on the paper */}
-        <div>
-          {messages.map((m) => (
-            <div key={m.id} style={{ marginBottom: 16 }}>
-              {m.type === "aura" && (
-                <div style={{ color: "#2c3e50" }}>
-                  <span style={{ color: "#667eea", fontWeight: 600 }}>
-                    Aura:{" "}
-                  </span>
-                  {m.isTyping ? <TypingText text={m.content} /> : m.content}
-                </div>
-              )}
-              {m.type === "user" && (
-                <div style={{ color: "#64748b", fontStyle: "italic" }}>
-                  <span style={{ fontWeight: 600 }}>You: </span>
-                  {m.content}
-                </div>
-              )}
-              {m.type === "actions" && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {m.content.map((a, i) => (
-                    <button
-                      key={`${m.id}-${i}`}
-                      onClick={() => handleActionClick(a.action)}
-                      style={{
-                        padding: "8px 16px",
-                        background:
-                          a.action === "open_lenses" ? "#f59e0b" : "#667eea",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                        fontSize: 14,
-                      }}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Inline input right under Aura’s last line */}
-          {awaitingInput && (
-            <>
+        {messages.map((m) => (
+          <div key={m.id} style={{ marginBottom: 16 }}>
+            {m.type === "aura" && (
+              <div style={{ color: "#2c3e50" }}>
+                <span style={{ color: "#667eea", fontWeight: 600 }}>
+                  Aura:{" "}
+                </span>
+                {m.isTyping ? <TypingText text={m.content} /> : m.content}
+              </div>
+            )}
+            {m.type === "user" && (
+              <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                <span style={{ fontWeight: 600 }}>You: </span>
+                {m.content}
+              </div>
+            )}
+            {m.type === "actions" && (
               <div
                 style={{
-                  color: "#64748b",
-                  fontStyle: "italic",
-                  marginTop: 8,
-                  marginBottom: 2,
+                  marginTop: 12,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
                 }}
               >
-                <span style={{ fontWeight: 600 }}>You: </span>
+                {m.content.map((a, i) => (
+                  <button
+                    key={`${m.id}-${i}`}
+                    onClick={() => handleActionClick(a.action)}
+                    style={{
+                      padding: "8px 16px",
+                      background:
+                        a.action === "open_lenses" ? "#f59e0b" : "#667eea",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    {a.label}
+                  </button>
+                ))}
               </div>
-              <InlinePaperInput
-                autoFocus
-                placeholder={
-                  currentStage === "welcome"
-                    ? "Enter your name… (Enter to send)"
-                    : currentStage === "story_input"
-                    ? "Write your story idea… (Enter to send, Shift+Enter for newline)"
-                    : "Type your response…"
-                }
-                onSubmit={routeUserText}
-              />
-            </>
-          )}
-
-          {/* Spacer so chat never hides behind the docked NotebookPane */}
-          <div style={{ height: 160 }} />
-          <div ref={endRef} />
-        </div>
-
-        {/* NOTEBOOK: transparent, borderless, bottom of paper */}
-        <div style={dockInsidePaperStyle}>
-          <div style={{ pointerEvents: "auto" }}>
-            <NotebookPane
-              title={`${userData.name || "Your"}'s Story`}
-              value={userData.story}
-              onChange={(v) => setUserData((p) => ({ ...p, story: v }))}
-              onRequestOpenLenses={() => setIsLensesOpen(true)}
-              autoFocus={false}
-            />
+            )}
           </div>
+        ))}
+
+        {/* Inline input right under Aura’s last line */}
+        {awaitingInput && (
+          <>
+            <div
+              style={{
+                color: "#64748b",
+                fontStyle: "italic",
+                marginTop: 8,
+                marginBottom: 2,
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>You: </span>
+            </div>
+            <InlinePaperInput
+              autoFocus
+              placeholder={
+                currentStage === "welcome"
+                  ? "Enter your name… (Enter to send)"
+                  : currentStage === "story_input"
+                  ? "Write your story idea… (Enter to send, Shift+Enter for newline)"
+                  : "Type your response…"
+              }
+              onSubmit={routeUserText}
+            />
+          </>
+        )}
+
+        {/* spacer so chat never hides behind the docked NotebookPane */}
+        <div style={{ height: 180 }} />
+        <div ref={endRef} />
+        {/* Docked NotebookPane (transparent, borderless, truly centered) */}
+        <div style={dockInsidePaperStyle}>
+          <NotebookPane
+            title={`${userData.name || "Your"}'s Story`}
+            value={userData.story}
+            onChange={(v) => setUserData((p) => ({ ...p, story: v }))}
+            onRequestOpenLenses={() => setIsLensesOpen(true)}
+            autoFocus={false}
+          />
         </div>
       </div>
 
