@@ -1,257 +1,150 @@
 // src/components/FormatLenses.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { LENSES, applyLens } from "../utils/lenses";
 
-/**
- * Default transformers (safe + simple). You can override all/any via props.
- * Expected shape: (text: string, title?: string) => string
- */
-const defaultTransformers = {
-  book: (text = "", title = "Your Story") => {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const paras = [];
-    for (let i = 0; i < sentences.length; i += 3) {
-      paras.push(
-        sentences
-          .slice(i, i + 3)
-          .join(" ")
-          .trim()
-      );
-    }
-    return [
-      "📖 NOVEL FORMAT",
-      "",
-      "CHAPTER ONE",
-      title,
-      "",
-      ...paras.map((p) => "     " + p),
-    ].join("\n");
-  },
-
-  screenplay: (text = "", title = "Your Story") => {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const hasDialogue = /"([^"]+)"|'([^']+)'/.test(text);
-    const match = text.match(/"([^"]+)"|'([^']+)'/);
-    const dialogue = match?.[1] || match?.[2];
-
-    let out = `📽️ SCREENPLAY FORMAT
-
-
-                    ${title.toUpperCase()}
-
-                         Written by
-                      
-                      You & Aura
-
-
-FADE IN:
-
-INT. SCENE - DAY
-
-${(sentences[0] || "").trim()}
-
-`;
-    if (hasDialogue) {
-      out += `CHARACTER
-    ${dialogue || "Your dialogue here"}
-
-`;
-    }
-    (sentences.slice(1, 3) || []).forEach((s) => {
-      out += s.trim() + "\n\n";
-    });
-    out += "FADE OUT.";
-    return out;
-  },
-
-  comic: (text = "", title = "Your Story") => {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const panels = sentences.slice(0, 6).map((s, i) => {
-      const isDialogue = /"([^"]+)"|'([^']+)'/.test(s);
-      const talk =
-        s.match(/"([^"]+)"|'([^']+)'/)?.[1] ||
-        s.match(/"([^"]+)"|'([^']+)'/)?.[2] ||
-        "Dialogue here";
-      const isAction = /\b(suddenly|then|crashed|ran|jumped|explodes?)\b/i.test(
-        s
-      );
-      const line1 = s.trim().slice(0, 35);
-      const line2 = s.trim().length > 35 ? s.trim().slice(35, 70) : "";
-
-      return `
-┌─────────────────────────────────────┐
-│ PANEL ${i + 1}${isAction ? " - ACTION SHOT" : ""}       │
-│                                     │
-│ ${line1.padEnd(35, " ")} │
-│ ${line2.padEnd(35, " ")} │
-│                                     │
-${
-  isDialogue
-    ? `│  ╭─────────────────────────╮       │
-│  │ ${talk.slice(0, 23).padEnd(23, " ")} │       │
-│  ╰─────────────────────────╯       │`
-    : "│                                     │"
-}
-└─────────────────────────────────────┘`;
-    });
-
-    return `🎨 COMIC BOOK FORMAT
-
-${title.toUpperCase()}
-Issue #1
-
-${panels.join("\n")}`;
-  },
+const backDropStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.45)",
+  backdropFilter: "blur(6px)",
+  zIndex: 1200,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "20px",
 };
 
-const LENSES = [
-  { id: "book", label: "Book" },
-  { id: "screenplay", label: "Screenplay" },
-  { id: "comic", label: "Comic" },
-];
+const panelStyle = {
+  background: "white",
+  width: "min(980px, 96vw)",
+  height: "min(82vh, 900px)",
+  borderRadius: "12px",
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 24px 64px rgba(0,0,0,0.25)",
+  display: "grid",
+  gridTemplateColumns: "260px 1fr",
+  overflow: "hidden",
+};
 
-const tabStyles = (active) => ({
-  button: {
-    padding: "8px 12px",
-    borderRadius: "9999px",
-    border: "1px solid #e2e8f0",
-    background: active
-      ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-      : "white",
-    color: active ? "white" : "#334155",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all .2s ease",
-    outline: "none",
-  },
+const sidebarStyle = {
+  borderRight: "1px solid #e5e7eb",
+  padding: "16px",
+  background:
+    "linear-gradient(180deg, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 60%)",
+};
+
+const previewStyle = {
+  padding: "16px 18px",
+  overflow: "auto",
+  whiteSpace: "pre-wrap",
+  lineHeight: 1.7,
+  fontSize: "14px",
+  color: "#1f2937",
+  background: "linear-gradient(180deg, #fdfdfd, #ffffff)",
+};
+
+const headerStyle = {
+  padding: "12px 16px",
+  borderBottom: "1px solid #e5e7eb",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const btn = (primary = false) => ({
+  padding: "10px 14px",
+  borderRadius: "8px",
+  border: primary ? "none" : "1px solid #e5e7eb",
+  background: primary ? "linear-gradient(135deg,#667eea,#764ba2)" : "white",
+  color: primary ? "white" : "#374151",
+  fontWeight: 600,
+  cursor: "pointer",
 });
 
 export default function FormatLenses({
-  content = "",
+  isOpen,
+  currentText = "",
   title = "Your Story",
-  initialLens = "book",
-  transformers = {},
-  onLensChange,
-  style,
-  className,
+  onApply,
+  onCancel,
+  defaultLens = "comic",
 }) {
-  const [activeLens, setActiveLens] = useState(
-    LENSES.some((l) => l.id === initialLens) ? initialLens : "book"
-  );
+  const [selected, setSelected] = useState(defaultLens);
 
-  const t = useMemo(
-    () => ({
-      ...defaultTransformers,
-      ...transformers,
-    }),
-    [transformers]
-  );
+  useEffect(() => {
+    if (!isOpen) return;
+    // reset selection each time you open
+    setSelected(defaultLens);
+  }, [isOpen, defaultLens]);
 
-  const previews = useMemo(() => {
-    const safe = (fn) => {
-      try {
-        return fn(content, title);
-      } catch (e) {
-        return `⚠️ Preview error: ${e.message}`;
-      }
-    };
-    return {
-      book: safe(t.book),
-      screenplay: safe(t.screenplay),
-      comic: safe(t.comic),
-    };
-  }, [content, title, t]);
+  const preview = useMemo(() => {
+    try {
+      return applyLens(currentText, selected, { title });
+    } catch (e) {
+      return "Could not render preview.";
+    }
+  }, [currentText, selected, title]);
 
-  const panelId = `lens-panel-${activeLens}`;
+  if (!isOpen) return null;
 
   return (
-    <div
-      className={className}
-      style={{
-        background: "white",
-        border: "1px solid #e2e8f0",
-        borderRadius: 12,
-        overflow: "hidden",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
-        ...style,
-      }}
-    >
-      {/* Tabs */}
-      <div
-        role="tablist"
-        aria-label="Format lenses"
-        style={{
-          display: "flex",
-          gap: 8,
-          padding: 12,
-          alignItems: "center",
-          borderBottom: "1px solid #e2e8f0",
-          background:
-            "linear-gradient(180deg, rgba(248,250,252,.8), rgba(255,255,255,1))",
-        }}
-      >
-        <span
-          style={{
-            fontSize: 12,
-            color: "#64748b",
-            marginRight: 6,
-            userSelect: "none",
-          }}
-        >
-          Preview as:
-        </span>
+    <div style={backDropStyle} onClick={onCancel}>
+      <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
+        {/* Left: lens list */}
+        <div style={sidebarStyle}>
+          <div style={{ fontWeight: 700, color: "#111827", marginBottom: 8 }}>
+            Format Lenses
+          </div>
+          <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 12 }}>
+            Try a format on your current text. This is a preview—nothing changes
+            until you click Apply.
+          </div>
 
-        {LENSES.map((lens) => {
-          const active = activeLens === lens.id;
-          const s = tabStyles(active);
-          return (
+          {LENSES.map((lens) => (
             <button
               key={lens.id}
-              role="tab"
-              aria-selected={active}
-              aria-controls={panelId}
-              id={`tab-${lens.id}`}
-              onClick={() => {
-                setActiveLens(lens.id);
-                if (onLensChange) onLensChange(lens.id);
+              onClick={() => setSelected(lens.id)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                background:
+                  selected === lens.id ? "rgba(102,126,234,0.08)" : "white",
+                marginBottom: 8,
+                cursor: "pointer",
               }}
-              style={s.button}
             >
-              {lens.label}
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                {lens.title}
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>{lens.desc}</div>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
 
-      {/* Panel */}
-      <div
-        id={panelId}
-        role="tabpanel"
-        aria-labelledby={`tab-${activeLens}`}
-        style={{
-          padding: 16,
-          maxHeight: 420,
-          overflow: "auto",
-          background: "linear-gradient(180deg, #ffffff, #fafbfc)",
-          fontFamily:
-            activeLens === "screenplay"
-              ? `'Courier New', Courier, monospace`
-              : "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-          whiteSpace: "pre-wrap",
-          lineHeight: 1.75,
-          color: "#1f2937",
-          fontSize: activeLens === "screenplay" ? 14 : 15,
-        }}
-      >
-        {!content.trim() ? (
-          <div style={{ color: "#94a3b8", fontStyle: "italic" }}>
-            Start writing in the notebook to see a live {activeLens} preview…
+        {/* Right: preview */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={headerStyle}>
+            <div style={{ fontWeight: 600, color: "#374151" }}>
+              Preview — {LENSES.find((l) => l.id === selected)?.title}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={btn(false)} onClick={onCancel}>
+                Cancel
+              </button>
+              <button
+                style={btn(true)}
+                onClick={() => onApply?.(preview, { lensId: selected })}
+              >
+                Apply to Notebook
+              </button>
+            </div>
           </div>
-        ) : (
-          previews[activeLens]
-        )}
+          <div style={previewStyle}>{preview}</div>
+        </div>
       </div>
     </div>
   );
 }
-
-export { FormatLenses };
