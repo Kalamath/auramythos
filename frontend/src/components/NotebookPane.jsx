@@ -1,3 +1,4 @@
+// src/components/NotebookPane.jsx
 import React, {
   forwardRef,
   useEffect,
@@ -19,35 +20,34 @@ import {
   toFountain,
 } from "../utils/exporters";
 
-// --- styles (overlay toolbar + transparent editor)
+/* ------------ styles ------------ */
 const shellStyle = {
   position: "relative",
   height: "100%",
-  width: "100%", // make sure it spans the paper width
   background: "transparent",
   border: "none",
   borderRadius: 0,
+  display: "grid",
+  gridTemplateRows: "1fr",
 };
 
 const overlayBarStyle = {
   position: "absolute",
-  bottom: 12,
-  left: 12,
+  top: 12,
+  right: 12,
   display: "flex",
   gap: 8,
   alignItems: "center",
-  background: "rgba(255,255,255,0.55)", // soft; looks like paper
+  background: "rgba(255,255,255,0.7)",
   backdropFilter: "blur(6px)",
-  border: "none", // no border
+  border: "1px solid #e5e7eb",
   borderRadius: 999,
   padding: "6px 8px",
   zIndex: 5,
 };
 
 const editorStyle = {
-  padding: "24px 24px 48px 24px", // roomy, but transparent
-  minHeight: 140, // visible target even when empty
-  width: "100%",
+  padding: "64px 48px 96px 48px",
   overflow: "auto",
   outline: "none",
   whiteSpace: "pre-wrap",
@@ -55,15 +55,14 @@ const editorStyle = {
   fontSize: 16,
   background: "transparent",
   color: "#1f2937",
-  // typewriter-like without extra webfonts:
   fontFamily:
-    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
 };
 
 const statsPillStyle = {
   position: "absolute",
   bottom: 12,
-  right: 12, // bottom-right edge of the pane
+  right: 12,
   background: "rgba(255,255,255,0.7)",
   backdropFilter: "blur(6px)",
   border: "1px solid #e5e7eb",
@@ -77,10 +76,8 @@ const statsPillStyle = {
 const chip = (primary = false) => ({
   padding: "6px 10px",
   borderRadius: 999,
-  border: "none", // no borders
-  background: primary
-    ? "linear-gradient(135deg,#667eea,#764ba2)"
-    : "rgba(255,255,255,0.6)",
+  border: primary ? "none" : "1px solid #e5e7eb",
+  background: primary ? "linear-gradient(135deg,#667eea,#764ba2)" : "white",
   color: primary ? "white" : "#374151",
   cursor: "pointer",
   fontWeight: 600,
@@ -96,13 +93,24 @@ const saveDot = (ok = true) => ({
   marginRight: 6,
 });
 
+/* NEW: compact footer row (transparent) */
+const compactRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  color: "#6b7280",
+  fontSize: 12,
+  background: "transparent",
+  padding: 0,
+};
+
 const slashMenuStyle = (pos) => ({
   position: "fixed",
   left: Math.max(10, Math.min(pos?.x ?? 0, window.innerWidth - 260)),
   top: Math.max(50, Math.min(pos?.y ?? 0, window.innerHeight - 200)),
   width: 240,
   background: "white",
-  border: "none",
+  border: "1px solid #e5e7eb",
   borderRadius: 10,
   boxShadow: "0 16px 40px rgba(0,0,0,0.15)",
   zIndex: 2000,
@@ -141,7 +149,7 @@ const NotebookPane = forwardRef(function NotebookPane(
     value,
     onChange,
     onRequestOpenLenses,
-    autoFocus = false,
+    compact = false,
   },
   ref
 ) {
@@ -151,12 +159,7 @@ const NotebookPane = forwardRef(function NotebookPane(
   const [showSlash, setShowSlash] = useState(false);
   const [slashPos, setSlashPos] = useState(null);
 
-  // Focus on mount or when autoFocus toggles on
-  useEffect(() => {
-    if (autoFocus) editorRef.current?.focus();
-  }, [autoFocus]);
-
-  // Expose `insertAtCaret` to parent (optional utility)
+  // Expose `insertAtCaret` to parent (DemoStorySystem)
   useImperativeHandle(
     ref,
     () => ({
@@ -167,14 +170,11 @@ const NotebookPane = forwardRef(function NotebookPane(
         onChange?.(next);
         requestAnimationFrame(() => setCaretOffset(el, newCaret));
       },
-      focusEditor() {
-        editorRef.current?.focus();
-      },
     }),
     [value, onChange]
   );
 
-  // Autosave
+  // Autosave to localStorage
   useEffect(() => {
     setSaving(true);
     const t = setTimeout(() => {
@@ -257,9 +257,25 @@ const NotebookPane = forwardRef(function NotebookPane(
     );
   };
 
+  /* ---------- COMPACT MODE (footer only) ---------- */
+  if (compact) {
+    return (
+      <div style={compactRowStyle}>
+        <span>
+          {countWords(value || "").toLocaleString()} words • ~
+          {readingTimeMinutes(value || "")} min read
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={saveDot(!saving)} />
+          {saving ? "Saving…" : `Saved • ${relativeTime(lastSavedAt)}`}
+        </span>
+      </div>
+    );
+  }
+
+  /* ---------- FULL EDITOR (unchanged) ---------- */
   return (
     <div style={shellStyle}>
-      {/* Floating toolbar (transparent, no borders) */}
       <div style={overlayBarStyle}>
         <div
           style={{
@@ -284,7 +300,6 @@ const NotebookPane = forwardRef(function NotebookPane(
         </button>
       </div>
 
-      {/* The transparent, typewriter editor */}
       <div
         ref={editorRef}
         contentEditable
@@ -297,12 +312,10 @@ const NotebookPane = forwardRef(function NotebookPane(
         {value}
       </div>
 
-      {/* Bottom-right stats pill (“0 words”) */}
       <div style={statsPillStyle}>
         {stats.wc.toLocaleString()} words • ~{stats.mins} min read
       </div>
 
-      {/* Slash menu */}
       {showSlash && (
         <div
           style={slashMenuStyle(slashPos)}
@@ -316,7 +329,7 @@ const NotebookPane = forwardRef(function NotebookPane(
           ].map(([k, label]) => (
             <div
               key={k}
-              style={{ padding: "8px 8px", borderRadius: 8, cursor: "pointer" }}
+              style={slashItem}
               onClick={() => pickTemplate(k)}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "rgba(102,126,234,0.08)")

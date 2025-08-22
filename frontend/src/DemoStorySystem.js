@@ -4,6 +4,30 @@ import FormatLenses from "./components/FormatLenses";
 import NotebookPane from "./components/NotebookPane";
 import InlinePaperInput from "./components/InlinePaperInput";
 
+// --- message row wrapping (prevents right-edge overflow) ---
+const msgRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "max-content 1fr", // label | text
+  columnGap: 6,
+  alignItems: "start",
+};
+
+const msgLabelStyle = {
+  fontWeight: 600,
+  color: "#667eea",
+};
+
+const msgTextStyle = {
+  display: "block",
+  maxWidth: "100%", // ensure we can’t exceed column
+  minWidth: 0, // allow shrinking in grid
+  overflowWrap: "anywhere", // wrap long tokens/URLs
+  wordBreak: "break-word",
+  whiteSpace: "pre-wrap",
+  lineHeight: 1.7,
+  boxSizing: "border-box",
+};
+
 const uniqueId = (p = "m") =>
   `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -19,24 +43,18 @@ const auraResponses = {
     "Interesting! Let me analyze this… spotting themes and narrative elements…",
 };
 
-// ---- Paper container (anchors the NotebookPane) ----
+// ---- Paper + Dock styles ----
+const PAPER_MAX_W = 760;
+const PAPER_SIDE_PAD = 16; // keep in sync with paperBodyStyle
+
 const paperBodyStyle = {
   position: "relative",
-  width: "min(760px, 92vw)",
+  width: `min(${PAPER_MAX_W}px, 92vw)`,
   margin: "0 auto",
-  padding: "0 16px",
-  minHeight: "calc(100vh - 120px)",
-  // room so chat never hides behind the docked editor
-  paddingBottom: 180,
-};
-
-// NotebookPane is **inside** the paper and centered by left/right=16 (same as paper padding)
-const dockInsidePaperStyle = {
-  position: "absolute",
-  left: 16,
-  right: 16,
-  bottom: 8,
-  zIndex: 2000,
+  padding: `0 ${PAPER_SIDE_PAD}px`,
+  paddingBottom: 220,
+  boxSizing: "border-box",
+  textAlign: "left", // don’t inherit centering
 };
 
 function TypingText({ text, speed = 30 }) {
@@ -92,6 +110,10 @@ export const DemoStorySystem = ({ onExit }) => {
   const timersRef = useRef([]);
   const pushTimer = (t) => (timersRef.current.push(t), t);
 
+  // paper ref + measured dock geometry
+  const paperRef = useRef(null);
+  const [dockGeom, setDockGeom] = useState({ left: 0, width: 0 });
+
   const [messages, setMessages] = useState([]);
   const [currentStage, setCurrentStage] = useState("welcome");
   const [isAuraTyping, setIsAuraTyping] = useState(false);
@@ -128,7 +150,18 @@ export const DemoStorySystem = ({ onExit }) => {
       { id: uniqueId("user"), type: "user", content: text },
     ]);
 
-  // --- kickoff (restores full flow: asks name first) ---
+  // --- restore notebook text from localStorage (so the dock isn't empty) ---
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("auramythos_notebook");
+      if (saved && !userData.story) {
+        setUserData((p) => ({ ...p, story: saved }));
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- kickoff (asks name first) ---
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -136,18 +169,50 @@ export const DemoStorySystem = ({ onExit }) => {
     pushTimer(
       setTimeout(() => {
         addAuraMessage(auraResponses.welcome, () => setAwaitingInput(true));
-      }, 350)
+      }, 300)
     );
 
     return () => {
       timersRef.current.forEach(clearTimeout);
       timersRef.current = [];
     };
-  }, []); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // safety boot: if something cleared state during hot reload, reseed welcome
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (messages.length === 0 && !isAuraTyping && !awaitingInput) {
+        addAuraMessage(auraResponses.welcome, () => setAwaitingInput(true));
+      }
+    }, 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, isAuraTyping, awaitingInput]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, awaitingInput]);
+
+  // --- measured dock alignment to paper’s inner column ---
+  useEffect(() => {
+    const measure = () => {
+      const el = paperRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const left = Math.round(r.left + PAPER_SIDE_PAD);
+      const width = Math.max(0, Math.round(r.width - 2 * PAPER_SIDE_PAD));
+      setDockGeom({ left, width });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const ro = new ResizeObserver(measure);
+    if (paperRef.current) ro.observe(paperRef.current);
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro.disconnect();
+    };
+  }, []);
 
   // --- routing ---
   const handleName = (name) => {
@@ -184,7 +249,6 @@ export const DemoStorySystem = ({ onExit }) => {
       setTimeout(() => {
         setIsAuraThinking(false);
         addAuraMessage(auraResponses.analyzing, () => {
-          // show simple actions so the flow continues
           setMessages((p) => [
             ...p,
             {
@@ -226,6 +290,21 @@ export const DemoStorySystem = ({ onExit }) => {
     }
   };
 
+  // measured, paper-aligned dock styles (computed each render)
+  const dockStyle = {
+    position: "fixed",
+    bottom: 12,
+    left: dockGeom.left,
+    width: dockGeom.width,
+    zIndex: 2000,
+    pointerEvents: "none",
+  };
+  const dockRow = {
+    display: "flex",
+    justifyContent: "flex-end",
+    pointerEvents: "auto",
+  };
+
   return (
     <>
       <style>{`
@@ -234,23 +313,39 @@ export const DemoStorySystem = ({ onExit }) => {
       `}</style>
 
       {/* PAPER BODY (conversation prints here) */}
-      <div style={paperBodyStyle}>
+      <div style={paperBodyStyle} ref={paperRef}>
         {messages.map((m) => (
           <div key={m.id} style={{ marginBottom: 16 }}>
             {m.type === "aura" && (
               <div style={{ color: "#2c3e50" }}>
-                <span style={{ color: "#667eea", fontWeight: 600 }}>
-                  Aura:{" "}
-                </span>
-                {m.isTyping ? <TypingText text={m.content} /> : m.content}
+                <div style={msgRowStyle}>
+                  <span style={{ ...msgLabelStyle, color: "#667eea" }}>
+                    Aura:
+                  </span>
+                  <span style={msgTextStyle}>
+                    {m.isTyping ? <TypingText text={m.content} /> : m.content}
+                  </span>
+                </div>
               </div>
             )}
+
             {m.type === "user" && (
-              <div style={{ color: "#64748b", fontStyle: "italic" }}>
-                <span style={{ fontWeight: 600 }}>You: </span>
-                {m.content}
+              <div style={{ color: "#2c3e50" }}>
+                <div style={msgRowStyle}>
+                  <span
+                    style={{
+                      ...msgLabelStyle,
+                      color: "#64748b",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    You:
+                  </span>
+                  <span style={msgTextStyle}>{m.content}</span>
+                </div>
               </div>
             )}
+
             {m.type === "actions" && (
               <div
                 style={{
@@ -310,17 +405,18 @@ export const DemoStorySystem = ({ onExit }) => {
           </>
         )}
 
-        {/* spacer so chat never hides behind the docked NotebookPane */}
-        <div style={{ height: 180 }} />
+        {/* Spacer so chat never hides behind the bottom dock */}
+        <div style={{ height: 220 }} />
         <div ref={endRef} />
-        {/* Docked NotebookPane (transparent, borderless, truly centered) */}
-        <div style={dockInsidePaperStyle}>
+      </div>
+
+      {/* FOOTER DOCK (right-aligned inside paper’s inner ruled margins) */}
+      <div style={dockStyle}>
+        <div style={dockRow}>
           <NotebookPane
+            compact
             title={`${userData.name || "Your"}'s Story`}
             value={userData.story}
-            onChange={(v) => setUserData((p) => ({ ...p, story: v }))}
-            onRequestOpenLenses={() => setIsLensesOpen(true)}
-            autoFocus={false}
           />
         </div>
       </div>
