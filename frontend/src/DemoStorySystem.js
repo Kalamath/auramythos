@@ -1,446 +1,349 @@
 // src/DemoStorySystem.js
-import React, { useEffect, useRef, useState } from "react";
-import FormatLenses from "./components/FormatLenses";
-import NotebookPane from "./components/NotebookPane";
-import InlinePaperInput from "./components/InlinePaperInput";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-// --- message row wrapping (prevents right-edge overflow) ---
-const msgRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "max-content 1fr", // label | text
-  columnGap: 6,
-  alignItems: "start",
-};
+/**
+ * DemoStorySystem (refined)
+ * - Types Aura's demo lines out.
+ * - Bottom-right fixed metrics dock (Word Count, Auto-save, Minutes Read).
+ * - Word/Read-time ONLY from userText (text the user typed), never from Aura's lines.
+ * - Dock is fixed to the notebook's bottom-right via computed viewport offsets.
+ */
 
-const msgLabelStyle = {
-  fontWeight: 600,
-  color: "#667eea",
-};
+export function DemoStorySystem({
+  initialGenre = "scifi",
+  initialFormat = "comic",
+  autoStart = true,
+  onExit, // kept for API compatibility; unused now
+  /** Pass ONLY user-authored text here (aggregated). */
+  userText = "",
+}) {
+  // --- Demo script -----------------------------------------------------------
+  const script = useMemo(() => {
+    return [
+      `Hey — I'm Aura. Let’s try a quick ${initialGenre} ${initialFormat} together. ✨`,
+      `Picture it: a quiet station, lights humming, one console blinking.`,
+      `A lone astronaut leans in. The signal cuts through static: three notes, then silence.`,
+      `Do we trace it — or barricade the doors?`,
+      `That’s the spark. From here, we branch, explore, and shape your story on the page.`,
+      `Ready? We can turn this into panels, scenes, or chapters in seconds.`,
+    ];
+  }, [initialGenre, initialFormat]);
 
-const msgTextStyle = {
-  display: "block",
-  maxWidth: "100%", // ensure we can’t exceed column
-  minWidth: 0, // allow shrinking in grid
-  overflowWrap: "anywhere", // wrap long tokens/URLs
-  wordBreak: "break-word",
-  whiteSpace: "pre-wrap",
-  lineHeight: 1.7,
-  boxSizing: "border-box",
-};
+  // --- Typing state (Aura’s demo text) --------------------------------------
+  const [isPlaying, setIsPlaying] = useState(!!autoStart);
+  const [lineIndex, setLineIndex] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [lines, setLines] = useState([]);
+  const typingRef = useRef(null);
+  const containerRef = useRef(null);
+  const scrollerRef = useRef(null);
 
-const uniqueId = (p = "m") =>
-  `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const charDelay = 24;
+  const linePause = 650;
 
-// --- Aura text ---
-const auraResponses = {
-  welcome:
-    "Hello! I'm Aura, your AI writing assistant ✨ I help transform your ideas into professional stories, scripts, and more. What should I call you?",
-  introduction: (name) =>
-    `Nice to meet you, ${name}! 😊 I can help you write in any format—novels, screenplays, comics, you name it. Ready to create something amazing together?`,
-  storyPrompt:
-    "Great! Start with your idea. Don’t worry about perfection—just write naturally. A few sentences is fine!",
-  analyzing:
-    "Interesting! Let me analyze this… spotting themes and narrative elements…",
-};
+  // Find the scrollable area (".scrollable-content") so we can scroll-to-bottom & anchor the dock
+  useEffect(() => {
+    scrollerRef.current =
+      containerRef.current?.closest(".scrollable-content") || null;
+  }, []);
 
-// ---- Paper + Dock styles ----
-const PAPER_MAX_W = 760;
-const PAPER_SIDE_PAD = 16; // keep in sync with paperBodyStyle
-
-const paperBodyStyle = {
-  position: "relative",
-  width: `min(${PAPER_MAX_W}px, 92vw)`,
-  margin: "0 auto",
-  padding: `0 ${PAPER_SIDE_PAD}px`,
-  paddingBottom: 220,
-  boxSizing: "border-box",
-  textAlign: "left", // don’t inherit centering
-};
-
-function TypingText({ text, speed = 30 }) {
-  const [shown, setShown] = useState("");
-  const [i, setI] = useState(0);
-  const [typing, setTyping] = useState(true);
+  // Auto-scroll the scroller as Aura types
+  useEffect(() => {
+    if (!scrollerRef.current) return;
+    scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
+  }, [lines, typed]);
 
   useEffect(() => {
-    if (!typing || i >= text.length) return;
-    const v = Math.random() * 20 - 10;
-    const t = setTimeout(() => {
-      setShown((p) => p + text[i]);
-      setI((p) => p + 1);
-      if (i + 1 >= text.length) setTyping(false);
-    }, speed + v);
-    return () => clearTimeout(t);
-  }, [typing, i, text, speed]);
+    if (autoStart) setIsPlaying(true);
+  }, [autoStart]);
 
-  return (
-    <span>
-      {shown}
-      {typing && (
-        <span
-          style={{
-            animation: "blink 1s infinite",
-            marginLeft: 2,
-            color: "#667eea",
-          }}
-        >
-          |
-        </span>
-      )}
-    </span>
-  );
-}
-
-const AuraThinking = () => (
-  <div
-    style={{
-      marginBottom: 16,
-      fontStyle: "italic",
-      color: "#94a3b8",
-      fontSize: 13,
-    }}
-  >
-    <span style={{ animation: "pulse 2s infinite" }}>Aura is thinking…</span>
-  </div>
-);
-
-export const DemoStorySystem = ({ onExit }) => {
-  const endRef = useRef(null);
-  const startedRef = useRef(false);
-  const timersRef = useRef([]);
-  const pushTimer = (t) => (timersRef.current.push(t), t);
-
-  // paper ref + measured dock geometry
-  const paperRef = useRef(null);
-  const [dockGeom, setDockGeom] = useState({ left: 0, width: 0 });
-
-  const [messages, setMessages] = useState([]);
-  const [currentStage, setCurrentStage] = useState("welcome");
-  const [isAuraTyping, setIsAuraTyping] = useState(false);
-  const [isAuraThinking, setIsAuraThinking] = useState(false);
-  const [awaitingInput, setAwaitingInput] = useState(false);
-
-  // Notebook state (transparent, bottom-docked)
-  const [userData, setUserData] = useState({ name: "", story: "" });
-  const [isLensesOpen, setIsLensesOpen] = useState(false);
-
-  // --- helpers ---
-  const addAuraMessage = (text, done) => {
-    const id = uniqueId("aura");
-    setIsAuraTyping(true);
-    setMessages((prev) => [
-      ...prev,
-      { id, type: "aura", content: text, isTyping: true },
-    ]);
-    const typingTime = Math.min(text.length * 30, 4000);
-    pushTimer(
-      setTimeout(() => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === id ? { ...m, isTyping: false } : m))
-        );
-        setIsAuraTyping(false);
-        done && done();
-      }, typingTime)
-    );
-  };
-
-  const addUserMessage = (text) =>
-    setMessages((p) => [
-      ...p,
-      { id: uniqueId("user"), type: "user", content: text },
-    ]);
-
-  // --- restore notebook text from localStorage (so the dock isn't empty) ---
   useEffect(() => {
+    return () => typingRef.current && clearTimeout(typingRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (lineIndex >= script.length) return;
+
+    const full = script[lineIndex];
+
+    if (typed.length === full.length) {
+      typingRef.current = setTimeout(() => {
+        setLines((prev) => [...prev, full]);
+        setTyped("");
+        setLineIndex((i) => i + 1);
+      }, linePause);
+      return () => clearTimeout(typingRef.current);
+    }
+
+    typingRef.current = setTimeout(() => {
+      setTyped(full.slice(0, typed.length + 1));
+    }, charDelay);
+
+    return () => clearTimeout(typingRef.current);
+  }, [isPlaying, typed, lineIndex, script]);
+
+  // --- Metrics (ONLY from userText) -----------------------------------------
+  const userWordCount = useMemo(() => {
+    const txt = (userText || "").trim();
+    if (!txt) return 0;
+    const m = txt.match(/[A-Za-z0-9’'_-]+/g);
+    return m ? m.length : 0;
+  }, [userText]);
+
+  const minutesRead = useMemo(() => {
+    if (userWordCount === 0) return 0;
+    return Math.max(1, Math.ceil(userWordCount / 200)); // ~200 wpm
+  }, [userWordCount]);
+
+  // --- Auto-save (only userText) --------------------------------------------
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const saveTimer = useRef(null);
+  const SAVE_KEY = "auramythos_user_draft";
+
+  const doSave = (payload) => {
     try {
-      const saved = localStorage.getItem("auramythos_notebook");
-      if (saved && !userData.story) {
-        setUserData((p) => ({ ...p, story: saved }));
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // --- kickoff (asks name first) ---
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    pushTimer(
-      setTimeout(() => {
-        addAuraMessage(auraResponses.welcome, () => setAwaitingInput(true));
-      }, 300)
-    );
-
-    return () => {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // safety boot: if something cleared state during hot reload, reseed welcome
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (messages.length === 0 && !isAuraTyping && !awaitingInput) {
-        addAuraMessage(auraResponses.welcome, () => setAwaitingInput(true));
-      }
-    }, 50);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, isAuraTyping, awaitingInput]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, awaitingInput]);
-
-  // --- measured dock alignment to paper’s inner column ---
-  useEffect(() => {
-    const measure = () => {
-      const el = paperRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const left = Math.round(r.left + PAPER_SIDE_PAD);
-      const width = Math.max(0, Math.round(r.width - 2 * PAPER_SIDE_PAD));
-      setDockGeom({ left, width });
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    const ro = new ResizeObserver(measure);
-    if (paperRef.current) ro.observe(paperRef.current);
-    return () => {
-      window.removeEventListener("resize", measure);
-      ro.disconnect();
-    };
-  }, []);
-
-  // --- routing ---
-  const handleName = (name) => {
-    setUserData((p) => ({ ...p, name }));
-    setIsAuraThinking(true);
-    pushTimer(
-      setTimeout(() => {
-        setIsAuraThinking(false);
-        addAuraMessage(auraResponses.introduction(name), () => {
-          pushTimer(
-            setTimeout(() => {
-              addAuraMessage("Let's create something! 🚀", () => {
-                setCurrentStage("story_prompt");
-                pushTimer(
-                  setTimeout(() => {
-                    addAuraMessage(auraResponses.storyPrompt, () => {
-                      setCurrentStage("story_input");
-                      setAwaitingInput(true);
-                    });
-                  }, 600)
-                );
-              });
-            }, 500)
-          );
-        });
-      }, 1200)
-    );
-  };
-
-  const handleStory = (text) => {
-    setUserData((p) => ({ ...p, story: text }));
-    setIsAuraThinking(true);
-    pushTimer(
-      setTimeout(() => {
-        setIsAuraThinking(false);
-        addAuraMessage(auraResponses.analyzing, () => {
-          setMessages((p) => [
-            ...p,
-            {
-              id: uniqueId("actions"),
-              type: "actions",
-              content: [
-                { action: "open_lenses", label: "Format Lenses ✨" },
-                { action: "new_story", label: "Write New Story" },
-              ],
-            },
-          ]);
-        });
-      }, 900)
-    );
-  };
-
-  const routeUserText = (txt) => {
-    if (!txt?.trim()) return;
-    const clean = txt.trim();
-    addUserMessage(clean);
-    setAwaitingInput(false);
-
-    if (currentStage === "welcome") return handleName(clean);
-    if (currentStage === "story_input") return handleStory(clean);
-  };
-
-  const handleActionClick = (action) => {
-    if (action === "open_lenses") return setIsLensesOpen(true);
-    if (action === "new_story") {
-      setMessages([]);
-      setUserData((p) => ({ ...p, story: "" }));
-      setCurrentStage("story_prompt");
-      addAuraMessage("Alright, let’s start fresh! 🌱", () => {
-        addAuraMessage(auraResponses.storyPrompt, () => {
-          setCurrentStage("story_input");
-          setAwaitingInput(true);
-        });
-      });
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      setLastSavedAt(Date.now());
+    } catch (e) {
+      // best-effort only
+      // eslint-disable-next-line no-console
+      console.warn("Autosave failed:", e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // measured, paper-aligned dock styles (computed each render)
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (!userText?.trim()) {
+      // Nothing to save; clear state
+      setIsSaving(false);
+      return;
+    }
+    setIsSaving(true);
+    saveTimer.current = setTimeout(() => {
+      doSave({
+        ts: Date.now(),
+        text: userText,
+        words: userWordCount,
+        genre: initialGenre,
+        format: initialFormat,
+      });
+    }, 800);
+    return () => saveTimer.current && clearTimeout(saveTimer.current);
+  }, [userText, userWordCount, initialGenre, initialFormat]);
+
+  const manualSave = () => {
+    if (!userText?.trim()) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setIsSaving(true);
+    doSave({
+      ts: Date.now(),
+      text: userText,
+      words: userWordCount,
+      genre: initialGenre,
+      format: initialFormat,
+    });
+  };
+
+  const fmtTime = (ts) => {
+    if (!ts) return "—";
+    try {
+      return new Date(ts).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "—";
+    }
+  };
+
+  // --- Fixed dock anchored to notebook bottom-right -------------------------
+  // We compute viewport offsets so the dock hugs the notebook’s bottom-right corner.
+  const [dockPos, setDockPos] = useState({ right: 16, bottom: 16 });
+
+  const computeDockOffsets = () => {
+    // scroller: .scrollable-content
+    // notebook container is the parent of scroller (App.js structure)
+    const scrollerEl = scrollerRef.current;
+    const notebookEl = scrollerEl?.parentElement || null;
+    if (!notebookEl) {
+      setDockPos({ right: 16, bottom: 16 });
+      return;
+    }
+    const rect = notebookEl.getBoundingClientRect();
+    const right = Math.max(16, window.innerWidth - rect.right + 16); // 16px inset
+    const bottom = Math.max(16, window.innerHeight - rect.bottom + 16); // 16px inset
+    setDockPos({ right, bottom });
+  };
+
+  useEffect(() => {
+    computeDockOffsets();
+    const onResize = () => computeDockOffsets();
+    const onScroll = () => computeDockOffsets();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    // Also observe layout shifts within the notebook
+    const ro = new ResizeObserver(() => computeDockOffsets());
+    if (scrollerRef.current?.parentElement) {
+      ro.observe(scrollerRef.current.parentElement);
+    }
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollerRef.current]);
+
+  // --- Styles ---------------------------------------------------------------
+  const lineStyle = { marginBottom: "16px" };
+  const typingLineStyle = { marginBottom: "16px", position: "relative" };
+  const caretStyle = {
+    display: "inline-block",
+    marginLeft: "2px",
+    animation: "blink 1s infinite",
+  };
+
+  // (near other style consts)
   const dockStyle = {
     position: "fixed",
-    bottom: 12,
-    left: dockGeom.left,
-    width: dockGeom.width,
-    zIndex: 2000,
-    pointerEvents: "none",
-  };
-  const dockRow = {
-    display: "flex",
-    justifyContent: "flex-end",
+    right: `${dockPos.right}px`,
+    bottom: `${dockPos.bottom}px`,
+    zIndex: 50,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: 0,
+    background: "transparent",
+    border: "none",
+    boxShadow: "none",
     pointerEvents: "auto",
+    color: "#374151",
+    fontSize: 12,
+    fontWeight: 600,
+  };
+
+  const metricStyle = {
+    whiteSpace: "nowrap",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#374151",
+  };
+
+  const saveLinkStyle = (enabled) => ({
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    marginLeft: 6,
+    color: "#374151",
+    cursor: enabled ? "pointer" : "default",
+    opacity: enabled ? 1 : 0.5,
+    textDecoration: "underline",
+  });
+
+  const pill = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "6px 10px",
+    border: "1px solid rgba(209,213,219,0.9)",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#374151",
+    background: "rgba(255,255,255,0.95)",
+    whiteSpace: "nowrap",
+  };
+
+  const dot = (active) => ({
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+    background: active ? "#10b981" : "#9ca3af",
+    boxShadow: active ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
+  });
+
+  const saveBtn = {
+    border: "1px solid rgba(209,213,219,0.9)",
+    borderRadius: "6px",
+    padding: "4px 8px",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: userText?.trim() ? "pointer" : "default",
+    color: userText?.trim() ? "#374151" : "#9ca3af",
+    background: userText?.trim()
+      ? "rgba(255,255,255,0.95)"
+      : "rgba(255,255,255,0.6)",
   };
 
   return (
-    <>
-      <style>{`
-        @keyframes blink { 0%,60%{opacity:1} 61%,100%{opacity:0} }
-        @keyframes pulse { 0%,100%{ opacity:.6 } 50%{ opacity:1 } }
-      `}</style>
-
-      {/* PAPER BODY (conversation prints here) */}
-      <div style={paperBodyStyle} ref={paperRef}>
-        {messages.map((m) => (
-          <div key={m.id} style={{ marginBottom: 16 }}>
-            {m.type === "aura" && (
-              <div style={{ color: "#2c3e50" }}>
-                <div style={msgRowStyle}>
-                  <span style={{ ...msgLabelStyle, color: "#667eea" }}>
-                    Aura:
-                  </span>
-                  <span style={msgTextStyle}>
-                    {m.isTyping ? <TypingText text={m.content} /> : m.content}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {m.type === "user" && (
-              <div style={{ color: "#2c3e50" }}>
-                <div style={msgRowStyle}>
-                  <span
-                    style={{
-                      ...msgLabelStyle,
-                      color: "#64748b",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    You:
-                  </span>
-                  <span style={msgTextStyle}>{m.content}</span>
-                </div>
-              </div>
-            )}
-
-            {m.type === "actions" && (
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                {m.content.map((a, i) => (
-                  <button
-                    key={`${m.id}-${i}`}
-                    onClick={() => handleActionClick(a.action)}
-                    style={{
-                      padding: "8px 16px",
-                      background:
-                        a.action === "open_lenses" ? "#f59e0b" : "#667eea",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      fontSize: 14,
-                    }}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Inline input right under Aura’s last line */}
-        {awaitingInput && (
-          <>
-            <div
-              style={{
-                color: "#64748b",
-                fontStyle: "italic",
-                marginTop: 8,
-                marginBottom: 2,
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>You: </span>
-            </div>
-            <InlinePaperInput
-              autoFocus
-              placeholder={
-                currentStage === "welcome"
-                  ? "Enter your name… (Enter to send)"
-                  : currentStage === "story_input"
-                  ? "Write your story idea… (Enter to send, Shift+Enter for newline)"
-                  : "Type your response…"
-              }
-              onSubmit={routeUserText}
-            />
-          </>
-        )}
-
-        {/* Spacer so chat never hides behind the bottom dock */}
-        <div style={{ height: 220 }} />
-        <div ref={endRef} />
-      </div>
-
-      {/* FOOTER DOCK (right-aligned inside paper’s inner ruled margins) */}
-      <div style={dockStyle}>
-        <div style={dockRow}>
-          <NotebookPane
-            compact
-            title={`${userData.name || "Your"}'s Story`}
-            value={userData.story}
-          />
+    <div ref={containerRef} style={{ paddingBottom: 0 }}>
+      {/* Aura's committed lines */}
+      {lines.map((l, i) => (
+        <div key={`line-${i}`} style={lineStyle}>
+          {l}
         </div>
-      </div>
+      ))}
 
-      {/* Format Lenses modal */}
-      <FormatLenses
-        isOpen={isLensesOpen}
-        currentText={userData.story || ""}
-        title={`${userData.name || "Your"}'s Story`}
-        onApply={(transformed) => {
-          setIsLensesOpen(false);
-          setUserData((p) => ({ ...p, story: transformed }));
-          setMessages((p) => [
-            ...p,
-            {
-              id: uniqueId("result"),
-              type: "aura",
-              content: "Applied to Notebook ✅",
-              isTyping: false,
-            },
-          ]);
-        }}
-        onCancel={() => setIsLensesOpen(false)}
-      />
-    </>
+      {/* Typing line */}
+      {lineIndex < script.length && (
+        <div style={typingLineStyle}>
+          {typed}
+          <span style={caretStyle}>|</span>
+        </div>
+      )}
+
+      {/* Subtle end marker */}
+      {lineIndex >= script.length && (
+        <div style={{ marginTop: "8px", opacity: 0.6 }}>
+          — end of demo beat —
+        </div>
+      )}
+
+      {/* Fixed metrics dock (no controls) */}
+      <div style={dockStyle} aria-label="Notebook metrics">
+        <span style={metricStyle}>
+          📄 {userWordCount.toLocaleString()} words
+        </span>
+        <span aria-hidden="true" style={{ opacity: 0.5, padding: "0 6px" }}>
+          ·
+        </span>
+        <span style={metricStyle}>
+          ⏱️ {minutesRead > 0 ? `~${minutesRead} min read` : "0 min read"}
+        </span>
+        <span aria-hidden="true" style={{ opacity: 0.5, padding: "0 6px" }}>
+          ·
+        </span>
+        <span style={metricStyle}>
+          <span style={{ color: isSaving ? "#9ca3af" : "#10b981" }}>•</span>{" "}
+          {isSaving ? "Saving…" : `Autosaved ${fmtTime(lastSavedAt)}`}
+          <button
+            type="button"
+            onClick={manualSave}
+            style={saveLinkStyle(!!(userText && userText.trim()))}
+          >
+            Save
+          </button>
+        </span>
+      </div>
+    </div>
   );
-};
+}
+
+// Viewer kept for API compatibility
+export function DemoStoryViewer({ text = "" }) {
+  return (
+    <div
+      style={{
+        whiteSpace: "pre-wrap",
+        lineHeight: 1.8,
+        fontFamily: "'Special Elite', 'Courier New', monospace",
+      }}
+    >
+      {text || "No preview available yet."}
+    </div>
+  );
+}
