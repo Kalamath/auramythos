@@ -2,11 +2,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * DemoStorySystem (refined)
- * - Types Aura's demo lines out.
- * - Bottom-right fixed metrics dock (Word Count, Auto-save, Minutes Read).
- * - Word/Read-time ONLY from userText (text the user typed), never from Aura's lines.
- * - Dock is fixed to the notebook's bottom-right via computed viewport offsets.
+ * DemoStorySystem – Task 1 (Flow + Input + parseKeywords)
+ * - Types Aura’s opening and prompt.
+ * - Transparent, on-page input captures *user* keywords (Enter to submit).
+ * - parseKeywords validates (needs 3+ tokens).
+ * - Advances to scene_pending (we’ll generate the scene in Task 2).
+ * - Dock: word count / read-time / autosave from *user-only* text.
  */
 
 export function DemoStorySystem({
@@ -14,89 +15,153 @@ export function DemoStorySystem({
   initialFormat = "comic",
   autoStart = true,
   onExit, // kept for API compatibility; unused now
-  /** Pass ONLY user-authored text here (aggregated). */
-  userText = "",
 }) {
-  // --- Demo script -----------------------------------------------------------
-  const script = useMemo(() => {
-    return [
-      `Hey — I'm Aura. Let’s try a quick ${initialGenre} ${initialFormat} together. ✨`,
-      `Picture it: a quiet station, lights humming, one console blinking.`,
-      `A lone astronaut leans in. The signal cuts through static: three notes, then silence.`,
-      `Do we trace it — or barricade the doors?`,
-      `That’s the spark. From here, we branch, explore, and shape your story on the page.`,
-      `Ready? We can turn this into panels, scenes, or chapters in seconds.`,
-    ];
-  }, [initialGenre, initialFormat]);
+  // -------------------- FLOW --------------------
+  // start → collect_keywords → scene_pending (Task 1 ends here)
+  const [phase, setPhase] = useState("start");
+  const [keywords, setKeywords] = useState([]);
+  const [userEntries, setUserEntries] = useState([]); // aggregate *user typed* text
+  const aggregatedUserText = useMemo(
+    () => userEntries.join("\n"),
+    [userEntries]
+  );
 
-  // --- Typing state (Aura’s demo text) --------------------------------------
-  const [isPlaying, setIsPlaying] = useState(!!autoStart);
-  const [lineIndex, setLineIndex] = useState(0);
-  const [typed, setTyped] = useState("");
-  const [lines, setLines] = useState([]);
+  // -------------------- Typing engine (Aura) --------------------
+  const [lines, setLines] = useState([]); // committed aura lines
+  const [typed, setTyped] = useState(""); // currently typing buffer
+  const queueRef = useRef([]); // aura lines waiting to type
   const typingRef = useRef(null);
-  const containerRef = useRef(null);
-  const scrollerRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   const charDelay = 24;
   const linePause = 650;
 
-  // Find the scrollable area (".scrollable-content") so we can scroll-to-bottom & anchor the dock
-  useEffect(() => {
-    scrollerRef.current =
-      containerRef.current?.closest(".scrollable-content") || null;
-  }, []);
+  const pushAura = (text) => {
+    queueRef.current.push(text);
+    kickTyping();
+  };
 
-  // Auto-scroll the scroller as Aura types
-  useEffect(() => {
-    if (!scrollerRef.current) return;
-    scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
-  }, [lines, typed]);
-
-  useEffect(() => {
-    if (autoStart) setIsPlaying(true);
-  }, [autoStart]);
+  const kickTyping = () => {
+    if (isTyping) return;
+    if (queueRef.current.length === 0) return;
+    setIsTyping(true);
+    setTyped("");
+  };
 
   useEffect(() => {
     return () => typingRef.current && clearTimeout(typingRef.current);
   }, []);
 
   useEffect(() => {
-    if (!isPlaying) return;
-    if (lineIndex >= script.length) return;
-
-    const full = script[lineIndex];
-
-    if (typed.length === full.length) {
+    if (!isTyping) return;
+    const current = queueRef.current[0];
+    if (!current) {
+      setIsTyping(false);
+      return;
+    }
+    if (typed.length === current.length) {
       typingRef.current = setTimeout(() => {
-        setLines((prev) => [...prev, full]);
+        setLines((prev) => [...prev, current]);
+        queueRef.current.shift();
         setTyped("");
-        setLineIndex((i) => i + 1);
+        if (queueRef.current.length === 0) {
+          setIsTyping(false);
+          // When we finish the opening prompt in start, move to collect_keywords
+          if (phase === "start") setPhase("collect_keywords");
+        } else {
+          // continue typing next line
+          setIsTyping(true);
+        }
       }, linePause);
       return () => clearTimeout(typingRef.current);
     }
-
     typingRef.current = setTimeout(() => {
-      setTyped(full.slice(0, typed.length + 1));
+      setTyped(current.slice(0, typed.length + 1));
     }, charDelay);
-
     return () => clearTimeout(typingRef.current);
-  }, [isPlaying, typed, lineIndex, script]);
+  }, [isTyping, typed, phase]);
 
-  // --- Metrics (ONLY from userText) -----------------------------------------
+  // -------------------- Notebook anchoring / scroll --------------------
+  const containerRef = useRef(null);
+  const scrollerRef = useRef(null);
+
+  useEffect(() => {
+    scrollerRef.current =
+      containerRef.current?.closest(".scrollable-content") || null;
+  }, []);
+
+  useEffect(() => {
+    if (!scrollerRef.current) return;
+    scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
+  }, [lines, typed]);
+
+  // -------------------- Opening script (guarded for React 18 StrictMode) --------------------
+  const DEV_GUARD_KEY = "__auramythos_demo_intro_once__";
+
+  useEffect(() => {
+    if (!autoStart) return;
+
+    // Dev-only guard to skip the StrictMode duplicate mount
+    if (
+      typeof window !== "undefined" &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      const last = window[DEV_GUARD_KEY] || 0;
+      const now = performance.now();
+      if (now - last < 1000) return; // second mount comes immediately; skip it
+      window[DEV_GUARD_KEY] = now;
+    }
+
+    const intro = [
+      `Hey — I'm Aura. Let’s try a quick ${initialGenre} ${initialFormat} together. ✨`,
+      `Give me **three evocative words** (e.g., "rust, corridor, heartbeat"). I’ll spin a cold open.`,
+    ];
+    intro.forEach((l) => pushAura(l));
+  }, [autoStart, initialGenre, initialFormat]);
+
+  // -------------------- Input handling (transparent on-page) --------------------
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef(null);
+
+  // Allow Enter to submit; Shift+Enter makes a new line
+  const handleKeyDown = (e) => {
+    if (phase !== "collect_keywords") return;
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitKeywords(draft);
+    }
+  };
+
+  const submitKeywords = (raw) => {
+    const words = parseKeywords(raw);
+    if (words.length < 3) {
+      pushAura(
+        `I need **three** strong words. Try something sensory or moody, like "ozone, flicker, footfalls".`
+      );
+      return;
+    }
+    // Record user text (for dock metrics/autosave)
+    setUserEntries((prev) => [...prev, raw.trim()]);
+    setKeywords(words);
+    setDraft("");
+    pushAura(`Got it: **${words.join(", ")}**. Let me set the scene…`);
+    setPhase("scene_pending"); // Task 2 will render the scene
+  };
+
+  // -------------------- Metrics (user-only) --------------------
   const userWordCount = useMemo(() => {
-    const txt = (userText || "").trim();
+    const txt = (aggregatedUserText || "").trim();
     if (!txt) return 0;
     const m = txt.match(/[A-Za-z0-9’'_-]+/g);
     return m ? m.length : 0;
-  }, [userText]);
+  }, [aggregatedUserText]);
 
   const minutesRead = useMemo(() => {
     if (userWordCount === 0) return 0;
     return Math.max(1, Math.ceil(userWordCount / 200)); // ~200 wpm
   }, [userWordCount]);
 
-  // --- Auto-save (only userText) --------------------------------------------
+  // -------------------- Autosave (user-only) --------------------
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const saveTimer = useRef(null);
@@ -108,7 +173,6 @@ export function DemoStorySystem({
       setLastSavedAt(Date.now());
     } catch (e) {
       // best-effort only
-      // eslint-disable-next-line no-console
       console.warn("Autosave failed:", e);
     } finally {
       setIsSaving(false);
@@ -117,8 +181,7 @@ export function DemoStorySystem({
 
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (!userText?.trim()) {
-      // Nothing to save; clear state
+    if (!aggregatedUserText?.trim()) {
       setIsSaving(false);
       return;
     }
@@ -126,22 +189,22 @@ export function DemoStorySystem({
     saveTimer.current = setTimeout(() => {
       doSave({
         ts: Date.now(),
-        text: userText,
+        text: aggregatedUserText,
         words: userWordCount,
         genre: initialGenre,
         format: initialFormat,
       });
     }, 800);
     return () => saveTimer.current && clearTimeout(saveTimer.current);
-  }, [userText, userWordCount, initialGenre, initialFormat]);
+  }, [aggregatedUserText, userWordCount, initialGenre, initialFormat]);
 
   const manualSave = () => {
-    if (!userText?.trim()) return;
+    if (!aggregatedUserText?.trim()) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setIsSaving(true);
     doSave({
       ts: Date.now(),
-      text: userText,
+      text: aggregatedUserText,
       words: userWordCount,
       genre: initialGenre,
       format: initialFormat,
@@ -160,13 +223,9 @@ export function DemoStorySystem({
     }
   };
 
-  // --- Fixed dock anchored to notebook bottom-right -------------------------
-  // We compute viewport offsets so the dock hugs the notebook’s bottom-right corner.
+  // -------------------- Dock anchoring (to notebook bottom-right) --------------------
   const [dockPos, setDockPos] = useState({ right: 16, bottom: 16 });
-
   const computeDockOffsets = () => {
-    // scroller: .scrollable-content
-    // notebook container is the parent of scroller (App.js structure)
     const scrollerEl = scrollerRef.current;
     const notebookEl = scrollerEl?.parentElement || null;
     if (!notebookEl) {
@@ -174,8 +233,8 @@ export function DemoStorySystem({
       return;
     }
     const rect = notebookEl.getBoundingClientRect();
-    const right = Math.max(16, window.innerWidth - rect.right + 16); // 16px inset
-    const bottom = Math.max(16, window.innerHeight - rect.bottom + 16); // 16px inset
+    const right = Math.max(16, window.innerWidth - rect.right + 16);
+    const bottom = Math.max(16, window.innerHeight - rect.bottom + 16);
     setDockPos({ right, bottom });
   };
 
@@ -185,7 +244,6 @@ export function DemoStorySystem({
     const onScroll = () => computeDockOffsets();
     window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onScroll, { passive: true });
-    // Also observe layout shifts within the notebook
     const ro = new ResizeObserver(() => computeDockOffsets());
     if (scrollerRef.current?.parentElement) {
       ro.observe(scrollerRef.current.parentElement);
@@ -198,7 +256,7 @@ export function DemoStorySystem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollerRef.current]);
 
-  // --- Styles ---------------------------------------------------------------
+  // -------------------- Styles --------------------
   const lineStyle = { marginBottom: "16px" };
   const typingLineStyle = { marginBottom: "16px", position: "relative" };
   const caretStyle = {
@@ -207,7 +265,6 @@ export function DemoStorySystem({
     animation: "blink 1s infinite",
   };
 
-  // (near other style consts)
   const dockStyle = {
     position: "fixed",
     right: `${dockPos.right}px`,
@@ -244,41 +301,30 @@ export function DemoStorySystem({
     textDecoration: "underline",
   });
 
-  const pill = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "6px 10px",
-    border: "1px solid rgba(209,213,219,0.9)",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 600,
-    color: "#374151",
-    background: "rgba(255,255,255,0.95)",
-    whiteSpace: "nowrap",
+  const transparentInputStyle = {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    outline: "none",
+    fontFamily: "'Special Elite', 'Courier New', monospace",
+    fontSize: "16px",
+    lineHeight: "1.8",
+    color: "#2c3e50",
+    resize: "none",
+    padding: 0,
   };
 
-  const dot = (active) => ({
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: active ? "#10b981" : "#9ca3af",
-    boxShadow: active ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
-  });
+  // -------------------- Helpers --------------------
+  function parseKeywords(input) {
+    if (!input) return [];
+    // Grab word-ish tokens, keep order, trim, drop empties
+    const tokens = input.toLowerCase().match(/[a-z0-9’'_-]+/gi);
+    if (!tokens) return [];
+    // Keep first 3 (allow duplicates but usually not needed)
+    return tokens.slice(0, 3);
+  }
 
-  const saveBtn = {
-    border: "1px solid rgba(209,213,219,0.9)",
-    borderRadius: "6px",
-    padding: "4px 8px",
-    fontSize: "12px",
-    fontWeight: 600,
-    cursor: userText?.trim() ? "pointer" : "default",
-    color: userText?.trim() ? "#374151" : "#9ca3af",
-    background: userText?.trim()
-      ? "rgba(255,255,255,0.95)"
-      : "rgba(255,255,255,0.6)",
-  };
-
+  // -------------------- Render --------------------
   return (
     <div ref={containerRef} style={{ paddingBottom: 0 }}>
       {/* Aura's committed lines */}
@@ -288,22 +334,37 @@ export function DemoStorySystem({
         </div>
       ))}
 
-      {/* Typing line */}
-      {lineIndex < script.length && (
+      {/* Aura typing line */}
+      {isTyping && (
         <div style={typingLineStyle}>
           {typed}
           <span style={caretStyle}>|</span>
         </div>
       )}
 
-      {/* Subtle end marker */}
-      {lineIndex >= script.length && (
-        <div style={{ marginTop: "8px", opacity: 0.6 }}>
-          — end of demo beat —
+      {/* User input row (transparent) */}
+      {phase === "collect_keywords" && (
+        <div style={{ marginTop: "8px" }}>
+          <textarea
+            ref={inputRef}
+            style={transparentInputStyle}
+            placeholder={`Type 3 words… then press Enter`}
+            rows={1}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
         </div>
       )}
 
-      {/* Fixed metrics dock (no controls) */}
+      {/* Scene placeholder (we implement actual scene next task) */}
+      {phase === "scene_pending" && (
+        <div style={{ marginTop: "8px", opacity: 0.7 }}>
+          (Scene generation comes next…)
+        </div>
+      )}
+
+      {/* Fixed metrics dock (transparent) */}
       <div style={dockStyle} aria-label="Notebook metrics">
         <span style={metricStyle}>
           📄 {userWordCount.toLocaleString()} words
@@ -323,7 +384,7 @@ export function DemoStorySystem({
           <button
             type="button"
             onClick={manualSave}
-            style={saveLinkStyle(!!(userText && userText.trim()))}
+            style={saveLinkStyle(!!aggregatedUserText?.trim())}
           >
             Save
           </button>
