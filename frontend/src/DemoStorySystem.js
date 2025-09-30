@@ -1,5 +1,12 @@
 // src/DemoStorySystem.js
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 
 /**
  * DemoStorySystem – Notebook-first (AudioPen-style)
@@ -9,6 +16,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  *   • Insert JPEG button (simple picker + inline preview strip)
  * - Dock (words / read-time / autosave / Change name) attached to the paper.
  * - No portals; everything is rendered inside the notebook container.
+ *
+ * Props:
+ * - recordButtonImageSrc (string)
+ * - recordButtonSize (number)
+ * - recordButtonAlt (string)
+ * - onStartRecording?({ source: 'stt' | 'mediarec' })
+ * - onStopRecording?({ source: 'stt', transcript?: string } | { source: 'mediarec', blob?: Blob, url?: string } | { source: 'stt'|'mediarec', error: string })
+ * - onSubmit?({ text: string, userName: string, ts: number, entriesCount: number })
  */
 
 export function DemoStorySystem({
@@ -16,13 +31,16 @@ export function DemoStorySystem({
   initialFormat = "comic",
   autoStart = true,
   // Record button customization
-  recordButtonImageSrc = "/images/AuraMythosLogo.png", // your PNG path
+  recordButtonImageSrc = "/images/AuraMythosLogo.png",
   recordButtonSize = 48, // px
   recordButtonAlt = "Record",
+  onStartRecording,
+  onStopRecording,
+  onSubmit, // submit hook
   onExit,
 }) {
   // -------------------- Flow --------------------
-  // start → ask_name? → notebook
+  // start → ask_name → notebook (always fresh on startup)
   const [phase, setPhase] = useState("start");
   const [userEntries, setUserEntries] = useState([]);
 
@@ -74,20 +92,6 @@ export function DemoStorySystem({
 
         if (queueRef.current.length === 0) {
           setIsTyping(false);
-          if (phase === "start") {
-            // after intro finishes, decide next phase
-            setTimeout(() => {
-              const saved = (userName || "").trim();
-              if (saved && saved.length >= 2) {
-                pushAura(
-                  `Great to see you again, ${saved}. This is your notebook — type a few sentences or even a few paragraphs. Press Shift+Enter any time you want feedback.`
-                );
-                setPhase("notebook");
-              } else {
-                setPhase("ask_name");
-              }
-            }, 0);
-          }
         } else {
           setIsTyping(true);
         }
@@ -100,25 +104,32 @@ export function DemoStorySystem({
       CHAR_DELAY
     );
     return () => clearTimeout(typingRef.current);
-  }, [isTyping, typed, phase, userName]);
+  }, [isTyping, typed]);
 
-  // -------------------- Intro --------------------
+  // -------------------- Intro (ALWAYS start fresh at ask_name) --------------------
   useEffect(() => {
     if (!autoStart) return;
-    // React 18 StrictMode guard for double-mount
-    const K = "__auramythos_demo_intro_once__";
+
+    // StrictMode double-mount guard
+    const K = "__auramythos_intro_once__";
     if (
       typeof window !== "undefined" &&
       process.env.NODE_ENV !== "production"
     ) {
-      const last = window[K] || 0;
-      const now = performance.now();
-      if (now - last < 1000) return;
-      window[K] = now;
+      if (window[K]) return;
+      window[K] = true;
     }
+
     pushAura(
       "Hello there — I'm Aura, your personal writing assistant. Before we begin, what's your name?"
     );
+    setPhase("ask_name");
+
+    // Focus name ASAP
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      el?.focus();
+    });
   }, [autoStart, initialGenre, initialFormat]);
 
   // -------------------- Input handling --------------------
@@ -126,9 +137,6 @@ export function DemoStorySystem({
   const [nameDraft, setNameDraft] = useState("");
 
   const [text, setText] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const analyzeTimer = useRef(null);
 
   // Media: mic + audio (fallback) + jpeg images
   const [isRecording, setIsRecording] = useState(false);
@@ -151,60 +159,115 @@ export function DemoStorySystem({
     return parts.join("\n");
   }, [userEntries, text, phase]);
 
-  // Focus name input when needed
-  useEffect(() => {
-    if (!isTyping && phase === "ask_name") inputRef.current?.focus();
-  }, [isTyping, phase]);
+  // -------------------- Focus name input (robust) --------------------
+  useLayoutEffect(() => {
+    if (phase !== "ask_name") return;
+
+    let tries = 0;
+    let rafId;
+
+    const focusNow = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      if (document.activeElement !== el) {
+        el.focus({ preventScroll: false });
+        try {
+          const len = el.value?.length ?? nameDraft.length;
+          el.setSelectionRange?.(len, len);
+        } catch {}
+      }
+      if (document.activeElement !== el && tries < 10) {
+        tries += 1;
+        rafId = requestAnimationFrame(focusNow);
+      }
+    };
+
+    rafId = requestAnimationFrame(focusNow);
+    const tId = setTimeout(focusNow, 50);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      clearTimeout(tId);
+    };
+  }, [phase, nameDraft]);
 
   useEffect(() => {
     if (phase === "ask_name") setNameDraft("");
   }, [phase]);
 
-  const onNameKeyDown = (e) => {
-    if (e.isComposing || e.keyCode === 229) return;
-    const isEnter = e.key === "Enter" || e.code === "Enter" || e.keyCode === 13;
-    if (!isEnter) return;
-    if (e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      submitName(nameDraft);
-    }
-  };
-
-  useEffect(() => {
-    const onGlobalShiftEnter = (e) => {
-      if (e.isComposing || e.keyCode === 229) return;
-      const isEnter =
-        e.key === "Enter" || e.code === "Enter" || e.keyCode === 13;
-      if (!isEnter || !e.shiftKey) return;
-      if (phase !== "ask_name") return;
-      e.preventDefault();
-      e.stopPropagation();
-      submitName(nameDraft);
-    };
-    window.addEventListener("keydown", onGlobalShiftEnter);
-    return () => window.removeEventListener("keydown", onGlobalShiftEnter);
-  }, [phase, nameDraft]);
-
-  const submitName = (raw) => {
-    const name = parseName(raw);
-    if (!name || name.length < 2) {
+  // -------------------- Submit behavior (Shift+Enter only) --------------------
+  const handleSubmit = useCallback(() => {
+    if (phase === "ask_name") {
+      const raw = (inputRef.current && inputRef.current.value) ?? nameDraft;
+      const name = parseName(raw);
+      if (!name || name.length < 2) {
+        pushAura(
+          "I didn’t catch that. A first name or nickname works perfectly."
+        );
+        return;
+      }
+      try {
+        localStorage.setItem(NAME_KEY, name);
+      } catch {}
+      setUserName(name);
       pushAura(
-        "I didn’t catch that. A first name or nickname works perfectly."
+        `Great to meet you, ${name}. This is your notebook — type a few sentences, or even a few paragraphs. Press Shift+Enter to submit.`
       );
+      setPhase("notebook");
+
+      // Focus notebook with retries
+      let tries = 0;
+      const focusNotebook = () => {
+        const ta = document.getElementById("auramythos-notebook-textarea");
+        if (ta && document.activeElement !== ta) {
+          ta.focus({ preventScroll: false });
+          try {
+            const len = ta.value?.length ?? 0;
+            ta.setSelectionRange?.(len, len);
+          } catch {}
+        }
+        if (document.activeElement !== ta && tries < 10) {
+          tries += 1;
+          requestAnimationFrame(focusNotebook);
+        }
+      };
+      requestAnimationFrame(focusNotebook);
       return;
     }
-    try {
-      localStorage.setItem(NAME_KEY, name);
-    } catch {}
-    setUserName(name);
-    pushAura(
-      `Great to meet you, ${name}. This is your notebook — type a few sentences, or even a few paragraphs. Press Shift+Enter when you want feedback.`
+
+    if (phase === "notebook") {
+      const ta = document.getElementById("auramythos-notebook-textarea");
+      const fromDom = (ta && ta.value) ?? text;
+      const payload = (fromDom || "").trim();
+      const nextCount = userEntries.length + (payload ? 1 : 0);
+      if (payload) setUserEntries((prev) => [...prev, payload]);
+      setText("");
+      if (ta) ta.value = ""; // ensure DOM clears immediately
+
+      onSubmit?.({
+        text: payload,
+        userName,
+        ts: Date.now(),
+        entriesCount: nextCount,
+      });
+    }
+  }, [phase, nameDraft, text, userEntries.length, onSubmit, userName]);
+
+  // --- Key helper (robust Shift+Enter detect) ---
+  const isShiftEnterKey = (e) =>
+    !!(
+      e.shiftKey &&
+      ((e.key || e.code) === "Enter" || e.keyCode === 13 || e.which === 13)
     );
-    setPhase("notebook");
-    requestAnimationFrame(() =>
-      document.getElementById("auramythos-notebook-textarea")?.focus()
-    );
+
+  const onNameKeyDown = (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (isShiftEnterKey(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSubmit();
+    }
+    // Plain Enter = newline (allowed)
   };
 
   // -------------------- Mic controls (single PNG button triggers start/stop) --------------------
@@ -212,47 +275,91 @@ export function DemoStorySystem({
     try {
       if (supportsSTT) {
         const r = new SpeechRecognition();
+        const sttFinalRef = { current: "" };
         r.continuous = true;
         r.interimResults = true;
         r.lang = "en-US";
+
+        r.onstart = () => {
+          setIsRecording(true);
+          onStartRecording?.({ source: "stt" });
+        };
+
         r.onresult = (ev) => {
           let finalChunk = "";
           for (let i = ev.resultIndex; i < ev.results.length; i++) {
             const res = ev.results[i];
             const str = res[0]?.transcript || "";
-            if (res.isFinal) finalChunk += str.endsWith(" ") ? str : str + " ";
+            if (res.isFinal) {
+              const piece = str.endsWith(" ") ? str : str + " ";
+              finalChunk += piece;
+            }
           }
-          if (finalChunk) setText((t) => (t ? t + " " : "") + finalChunk);
+          if (finalChunk) {
+            sttFinalRef.current += finalChunk;
+            setText((t) => (t ? t + " " : "") + finalChunk);
+          }
         };
-        r.onend = () => setIsRecording(false);
-        r.onerror = () => setIsRecording(false);
+
+        r.onend = () => {
+          setIsRecording(false);
+          onStopRecording?.({
+            source: "stt",
+            transcript: (sttFinalRef.current || "").trim(),
+          });
+        };
+
+        r.onerror = (ev) => {
+          setIsRecording(false);
+          onStopRecording?.({
+            source: "stt",
+            error: ev?.error || ev?.message || "SpeechRecognition error",
+          });
+        };
+
         recognitionRef.current = r;
-        setIsRecording(true);
         r.start();
         return;
       }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
       mediaRecRef.current = rec;
       chunksRef.current = [];
-      rec.ondataavailable = (e) =>
-        e.data.size && chunksRef.current.push(e.data);
-      rec.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const url = URL.createObjectURL(blob);
-        setAudioClips((prev) => [...prev, { url, ts: Date.now() }]);
-        setText(
-          (t) =>
-            `${t}\n\n[Voice note attached at ${new Date().toLocaleTimeString()}]`
-        );
-        setIsRecording(false);
-        stream.getTracks().forEach((tr) => tr.stop());
+
+      rec.onstart = () => {
+        setIsRecording(true);
+        onStartRecording?.({ source: "mediarec" });
       };
-      setIsRecording(true);
+
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunksRef.current.push(e.data);
+      };
+
+      rec.onstop = () => {
+        try {
+          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+          const url = URL.createObjectURL(blob);
+          setAudioClips((prev) => [...prev, { url, ts: Date.now() }]);
+          setText(
+            (t) =>
+              `${t}\n\n[Voice note attached at ${new Date().toLocaleTimeString()}]`
+          );
+          onStopRecording?.({ source: "mediarec", blob, url });
+        } finally {
+          setIsRecording(false);
+          stream.getTracks().forEach((tr) => tr.stop());
+        }
+      };
+
       rec.start();
     } catch (e) {
       console.warn("Mic start failed:", e);
       setIsRecording(false);
+      onStopRecording?.({
+        source: supportsSTT ? "stt" : "mediarec",
+        error: e?.message || String(e),
+      });
     }
   };
 
@@ -261,13 +368,19 @@ export function DemoStorySystem({
       if (recognitionRef.current) {
         recognitionRef.current.stop();
         recognitionRef.current = null;
-        setIsRecording(false);
-      } else if (mediaRecRef.current) {
+        return;
+      }
+      if (mediaRecRef.current) {
         mediaRecRef.current.stop();
+        return;
       }
     } catch (e) {
       console.warn("Mic stop failed:", e);
       setIsRecording(false);
+      onStopRecording?.({
+        source: recognitionRef.current ? "stt" : "mediarec",
+        error: e?.message || String(e),
+      });
     }
   };
 
@@ -288,12 +401,27 @@ export function DemoStorySystem({
   };
 
   // -------------------- Metrics --------------------
-  const userWordCount = useMemo(() => {
-    const txt = (aggregatedUserText || "").trim();
-    if (!txt) return 0;
-    const m = txt.match(/[A-Za-z0-9’'_ -]+/g);
-    return m ? m.length : 0;
-  }, [aggregatedUserText]);
+  const countWords = useCallback((s) => {
+    if (!s) return 0;
+    try {
+      if (typeof Intl !== "undefined" && Intl.Segmenter) {
+        const seg = new Intl.Segmenter("en", { granularity: "word" });
+        let c = 0;
+        for (const part of seg.segment(s)) {
+          if (part.isWordLike) c += 1;
+        }
+        return c;
+      }
+    } catch {}
+    // Fallback: token regex (letters/numbers, supports apostrophes/hyphens/underscores inside words)
+    const tokens = s.match(/\b[\p{L}\p{N}]+(?:[’'_‑-][\p{L}\p{N}]+)*\b/gu);
+    return tokens ? tokens.length : 0;
+  }, []);
+
+  const userWordCount = useMemo(
+    () => countWords(aggregatedUserText),
+    [aggregatedUserText, countWords]
+  );
 
   const minutesRead = useMemo(
     () =>
@@ -305,6 +433,7 @@ export function DemoStorySystem({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const saveTimer = useRef(null);
+  const manualSavingRef = useRef(false);
   const SAVE_KEY = "auramythos_user_draft";
 
   const doSave = (payload) => {
@@ -315,6 +444,7 @@ export function DemoStorySystem({
       console.warn("Autosave failed:", e);
     } finally {
       setIsSaving(false);
+      manualSavingRef.current = false; // <-- done saving
     }
   };
 
@@ -324,6 +454,7 @@ export function DemoStorySystem({
       setIsSaving(false);
       return;
     }
+    manualSavingRef.current = false; // <-- background save
     setIsSaving(true);
     saveTimer.current = setTimeout(() => {
       doSave({
@@ -340,6 +471,7 @@ export function DemoStorySystem({
   const manualSave = () => {
     if (!aggregatedUserText?.trim()) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    manualSavingRef.current = true; // <-- foreground save
     setIsSaving(true);
     doSave({
       ts: Date.now(),
@@ -401,10 +533,9 @@ export function DemoStorySystem({
     width: "100%",
     display: "flex",
     justifyContent: "center",
-    zIndex: 5, // stays above text
-    pointerEvents: "none", // wrapper ignores clicks...
+    zIndex: 5,
+    pointerEvents: "none",
   };
-  // Single PNG button styles
   const recBtn = {
     border: "none",
     background: "transparent",
@@ -415,7 +546,7 @@ export function DemoStorySystem({
     alignItems: "center",
     justifyContent: "center",
     outline: "none",
-    pointerEvents: "auto", // ...but the button itself still clickable
+    pointerEvents: "auto",
   };
   const recImg = (size) => ({
     height: size,
@@ -479,67 +610,6 @@ export function DemoStorySystem({
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  // --- Tiny analyzer (demo-safe) ---
-  function runHeuristicPasses(txt) {
-    const out = [];
-    txt.replace(/\b(\w+)\s+\1\b/gi, (m, w, idx) => {
-      out.push({
-        id: "rep-" + idx,
-        message: `Repeated word “${w}”`,
-        before: m,
-        after: w,
-        start: idx,
-        end: idx + m.length,
-      });
-      return m;
-    });
-    const sentenceRegex = /[^.!?]+[.!?]?(\s+|$)/g;
-    let sm;
-    while ((sm = sentenceRegex.exec(txt)) !== null) {
-      const sent = sm[0];
-      const start = sm.index;
-      const words = (sent.match(/[A-Za-z0-9’'_ -]+/g) || []).length;
-      if (words > 35) {
-        out.push({
-          id: "long-" + start,
-          message: `Consider shortening this sentence (${words} words)`,
-          before: sent.trim(),
-          after: sent.trim(),
-          start,
-          end: start + sent.length,
-        });
-      }
-    }
-    return out;
-  }
-
-  // Suggestions pass while typing in notebook
-  useEffect(() => {
-    if (phase !== "notebook") return;
-    if (analyzeTimer.current) clearTimeout(analyzeTimer.current);
-    analyzeTimer.current = setTimeout(
-      () => setSuggestions(runHeuristicPasses(text)),
-      1200
-    );
-    return () => analyzeTimer.current && clearTimeout(analyzeTimer.current);
-  }, [text, phase]);
-
-  // Keyboard shortcuts in notebook
-  useEffect(() => {
-    const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") setPanelOpen(true);
-      if (e.key === "Escape") setPanelOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const applySuggestion = (s) => {
-    const next = text.slice(0, s.start) + s.after + text.slice(s.end);
-    setText(next);
-    setSuggestions(runHeuristicPasses(next));
-  };
-
   return (
     <div style={{ paddingBottom: 0 }}>
       <div style={paperStyle}>
@@ -557,17 +627,25 @@ export function DemoStorySystem({
           </div>
         )}
 
-        {phase === "ask_name" && !isTyping && (
+        {phase === "ask_name" && (
           <div style={{ marginTop: 8 }}>
             <textarea
               ref={inputRef}
+              autoFocus
               style={transparentInputStyle}
-              placeholder="Enter your name and press Shift+Enter to submit"
+              placeholder="Enter your name. Enter = newline. Shift+Enter = submit."
               rows={1}
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
               onKeyDown={onNameKeyDown}
               maxLength={60}
+              onKeyDownCapture={(e) => {
+                if (isShiftEnterKey(e)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSubmit();
+                }
+              }}
             />
           </div>
         )}
@@ -579,7 +657,14 @@ export function DemoStorySystem({
                 id="auramythos-notebook-textarea"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Start typing your thoughts. A few sentences or even a few paragraphs are perfect. Press Shift+Enter when you want feedback."
+                placeholder="Start typing. Enter = new paragraph. Shift+Enter = submit."
+                onKeyDown={(e) => {
+                  if (isShiftEnterKey(e)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSubmit();
+                  }
+                }}
                 style={{
                   width: "100%",
                   minHeight: "60vh",
@@ -591,7 +676,14 @@ export function DemoStorySystem({
                   lineHeight: 1.8,
                   color: "#2c3e50",
                   resize: "none",
-                  marginBottom: 24, // small nudge so caret never hides
+                  marginBottom: 24,
+                }}
+                onKeyDownCapture={(e) => {
+                  if (isShiftEnterKey(e)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSubmit();
+                  }
                 }}
               />
             </div>
@@ -635,7 +727,6 @@ export function DemoStorySystem({
             )}
 
             {/* Lower-center toolbar (attached) */}
-            {/* Record button (only the PNG) */}
             <div style={recWrap}>
               <button
                 type="button"
@@ -652,7 +743,6 @@ export function DemoStorySystem({
                     style={recImg(recPx)}
                   />
                 ) : (
-                  // fallback if you don't pass a PNG
                   <svg
                     width={recPx}
                     height={recPx}
@@ -668,128 +758,6 @@ export function DemoStorySystem({
                   </svg>
                 )}
               </button>
-            </div>
-
-            {/* Suggestions pill */}
-            {suggestions.length > 0 && !panelOpen && (
-              <div
-                style={{
-                  position: "sticky",
-                  bottom: 40,
-                  width: "100%",
-                  display: "flex",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 10px",
-                    background: "#111827",
-                    color: "white",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                  onClick={() => setPanelOpen(true)}
-                  aria-label="Open Aura suggestions"
-                >
-                  ✦ Aura · {suggestions.length}
-                </div>
-              </div>
-            )}
-
-            {/* Bottom sheet panel */}
-            <div
-              style={{
-                position: "sticky",
-                bottom: 0,
-                width: "100%",
-                zIndex: 4,
-                display: panelOpen ? "block" : "none",
-              }}
-              role="dialog"
-              aria-label="Aura suggestions"
-            >
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.98)",
-                  borderTop: "1px solid #E5E7EB",
-                  boxShadow: "0 -10px 30px rgba(0,0,0,0.06)",
-                  borderTopLeftRadius: 14,
-                  borderTopRightRadius: 14,
-                  padding: 12,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <strong style={{ fontSize: 13 }}>
-                    Aura suggestions · {suggestions.length}
-                  </strong>
-                  <button
-                    onClick={() => setPanelOpen(false)}
-                    style={{
-                      fontSize: 12,
-                      border: "none",
-                      background: "transparent",
-                      color: "#6B7280",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  {suggestions.length === 0 ? (
-                    <div style={{ opacity: 0.6, fontSize: 13 }}>
-                      No suggestions. Looking good.
-                    </div>
-                  ) : (
-                    suggestions.map((s) => (
-                      <div
-                        key={s.id}
-                        style={{
-                          padding: "10px 0",
-                          borderTop: "1px solid #F3F4F6",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                        }}
-                      >
-                        <div style={{ fontSize: 13 }}>
-                          <div style={{ fontWeight: 600 }}>{s.message}</div>
-                          <div style={{ opacity: 0.7 }}>
-                            <em>{s.before}</em> → <em>{s.after}</em>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => applySuggestion(s)}
-                          style={{
-                            fontSize: 12,
-                            border: "1px solid #D1D5DB",
-                            borderRadius: 8,
-                            padding: "6px 10px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Dock (attached) */}
@@ -811,7 +779,9 @@ export function DemoStorySystem({
                   </span>
                   <span>
                     <span style={dotStyle}>•</span>{" "}
-                    {isSaving ? "Saving…" : "Autosaved " + fmtTime(lastSavedAt)}
+                    {manualSavingRef.current && isSaving
+                      ? "Saving…"
+                      : "Autosaved " + fmtTime(lastSavedAt)}
                     <button
                       type="button"
                       onClick={manualSave}
@@ -836,6 +806,15 @@ export function DemoStorySystem({
           </>
         )}
       </div>
+
+      {/* Hidden JPEG picker */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".jpg,.jpeg,image/jpeg"
+        style={{ display: "none" }}
+        onChange={onPickImage}
+      />
     </div>
   );
 }
